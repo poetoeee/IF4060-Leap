@@ -13,6 +13,7 @@ import { useAppStore } from '@/store';
 import { palmCenter, project } from '@/tracking/hand';
 import { SOURCE_META } from '@/tracking/labels';
 import { getLatestFrame, restartSource } from '@/tracking/manager';
+import { parkPreview } from '@/tracking/preview';
 import { DEFAULT_VIEW_ASPECT } from '@/tracking/types';
 import { useTracking } from '@/tracking/useTracking';
 import { SkeletonCanvas } from './SkeletonCanvas';
@@ -65,7 +66,10 @@ export function TrackingStage() {
     if (!box || !preview) return;
     preview.className = 'size-full -scale-x-100 object-cover';
     box.appendChild(preview);
-    return () => preview.remove();
+    // A stopped camera has already removed its video; only park a live one.
+    return () => {
+      if (preview.srcObject) parkPreview(preview);
+    };
   }, [preview]);
 
   return (

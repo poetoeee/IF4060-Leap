@@ -1,5 +1,6 @@
 import { FilesetResolver, HandLandmarker, type HandLandmarkerResult } from '@mediapipe/tasks-vision';
 import { VIEW_WIDTH_MM, type HandState } from '../types';
+import { parkPreview } from '../preview';
 import { BaseSource } from './base';
 
 /**
@@ -65,6 +66,7 @@ export class CameraSource extends BaseSource {
       video.muted = true;
       video.playsInline = true;
       video.srcObject = stream;
+      parkPreview(video);
       await video.play();
       landmarker ??= createLandmarker();
       const lm = await landmarker;
@@ -94,6 +96,7 @@ export class CameraSource extends BaseSource {
     let lastTime = -1;
     const tick = () => {
       if (gen !== this.gen) return;
+      if (video.paused) void video.play().catch(() => undefined);
       if (video.readyState >= 2 && video.currentTime !== lastTime) {
         lastTime = video.currentTime;
         const now = performance.now();
@@ -116,7 +119,10 @@ export class CameraSource extends BaseSource {
     cancelAnimationFrame(this.raf);
     this.stream?.getTracks().forEach((t) => t.stop());
     this.stream = null;
-    if (this.video) this.video.srcObject = null;
+    if (this.video) {
+      this.video.srcObject = null;
+      this.video.remove();
+    }
     this.video = null;
   }
 }
