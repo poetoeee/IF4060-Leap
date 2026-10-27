@@ -10,16 +10,16 @@ export const MOCK_KEYS: MockGesture[] = ['swipe_left', 'swipe_right', 'swipe_up'
 type Key = { t: number; dx?: number; dy?: number; curl?: number; thumb?: number; pinch?: number };
 
 /** Relaxed hand: fingers slightly bent, thumb tucked — not an Open Palm, still open enough to swipe. */
-const REST = { dx: 0, dy: 0, curl: 0.3, thumb: 0, pinch: 0 };
+const REST = { dx: 0, dy: 0, curl: 0.2, thumb: 0, pinch: 0 };
 const OPEN = { curl: 0.08, thumb: 0.6 };
 
+// Starts from rest (no fast wind-up) and glides back slowly so the return isn't a swipe.
 const swipe = (dx: number, dy: number, ms: number): Key[] => [
   { t: 0 },
-  { t: 150, ...OPEN, dx: -dx / 2, dy: -dy / 2 },
-  { t: 300, ...OPEN, dx: -dx / 2, dy: -dy / 2 },
-  { t: 300 + ms, ...OPEN, dx: dx / 2, dy: dy / 2 },
-  { t: 450 + ms, ...OPEN, dx: dx / 2, dy: dy / 2 },
-  { t: 1300 + ms },
+  { t: 150, ...OPEN },
+  { t: 150 + ms, ...OPEN, dx, dy },
+  { t: 300 + ms, ...OPEN, dx, dy },
+  { t: 1500 + ms },
 ];
 
 const SCRIPTS: Record<MockGesture, Key[]> = {
@@ -28,7 +28,7 @@ const SCRIPTS: Record<MockGesture, Key[]> = {
   swipe_up: swipe(0, 220, 280),
   swipe_down: swipe(0, -220, 280),
   pinch: [{ t: 0 }, { t: 100, ...OPEN }, { t: 250, ...OPEN, pinch: 1 }, { t: 550, ...OPEN, pinch: 1 }, { t: 700, ...OPEN }, { t: 900 }],
-  fist: [{ t: 0 }, { t: 100 }, { t: 250, curl: 1, thumb: 1 }, { t: 700, curl: 1, thumb: 1 }, { t: 950 }],
+  fist: [{ t: 0 }, { t: 100 }, { t: 250, curl: 1 }, { t: 700, curl: 1 }, { t: 950 }],
   open_palm: [{ t: 0 }, { t: 150, curl: 0, thumb: 1 }, { t: 2650, curl: 0, thumb: 1 }, { t: 2850 }],
 };
 

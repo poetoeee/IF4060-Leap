@@ -40,7 +40,7 @@ export function makeHand(pose: Pose): HandState {
   const indexTip = fingers[0]![3]!;
 
   const thumbOpen = [v(-25, 25), v(-45, 45), v(-62, 64), v(-80, 85)];
-  const thumbTucked = [v(-22, 25), v(-32, 42), v(-28, 58, -18), v(-12, 64, -26)];
+  const thumbTucked = [v(-22, 25), v(-38, 40, -4), v(-45, 55, -8), v(-32, 70, -16)];
   let thumb = thumbOpen.map((p, i) => lerp(thumbTucked[i]!, p, thumbOut));
   if (pinch > 0) {
     thumb = thumb.map((p, i) => (i < 2 ? p : lerp(p, i === 3 ? indexTip : lerp(thumb[2]!, indexTip, 0.5), pinch)));

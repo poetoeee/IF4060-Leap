@@ -1,3 +1,4 @@
+import { isTyping } from '@/lib/dom';
 import { BaseSource } from './base';
 import { makeHand } from './mockHand';
 import { MOCK_KEYS, poseAt, restPose, scriptDuration, type MockGesture, type Side } from './mockScripts';
@@ -39,8 +40,4 @@ export class MockSource extends BaseSource {
     pose.wrist.y += Math.sin(now / 1300) * 2;
     this.emitFrame({ source: 'mock', timestamp: now, hands: [makeHand(pose)] });
   };
-}
-
-function isTyping(t: EventTarget | null) {
-  return t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
 }

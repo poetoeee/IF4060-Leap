@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icon';
 import { LedMark } from '@/components/LedMark';
 import { StatusDot } from '@/components/StatusDot';
 import { Toggle } from '@/components/Toggle';
+import { recognizer } from '@/pipeline';
 import { useAppStore } from '@/store';
 import { palmCenter, project } from '@/tracking/hand';
 import { SOURCE_META } from '@/tracking/labels';
@@ -18,18 +19,22 @@ const OPTIMAL = { w: 160, h: 150, cy: 10 };
 const HEIGHT_OFFSET_MM = 200;
 
 interface Telemetry {
-  sides: string;
+  tag: string;
   height: string;
   inZone: boolean | null;
 }
 
 function readTelemetry(): Telemetry {
   const hands = getLatestFrame()?.hands ?? [];
-  if (!hands.length) return { sides: '', height: '—', inZone: null };
+  if (!hands.length) return { tag: '', height: '—', inZone: null };
   const palm = palmCenter(hands[0]!);
-  const sides = hands.map((h) => (h.side === 'left' ? 'L' : 'R')).sort();
+  const tag = recognizer
+    .debug()
+    .sort((a, b) => a.side.localeCompare(b.side))
+    .map((h) => `${h.side === 'left' ? 'L' : 'R'} · ${h.pose}`)
+    .join('  ');
   return {
-    sides: sides.join(' + '),
+    tag,
     height: `${Math.round((palm.y + HEIGHT_OFFSET_MM) / 10)} cm`,
     inZone: Math.abs(palm.x) <= OPTIMAL.w / 2 && Math.abs(palm.y - OPTIMAL.cy) <= OPTIMAL.h / 2,
   };
@@ -39,7 +44,7 @@ export function TrackingStage() {
   const { sourceId, status, detail, fps, preview } = useTracking();
   const showPreview = useAppStore((s) => s.settings.cameraPreview);
   const setSetting = useAppStore((s) => s.setSetting);
-  const [tele, setTele] = useState<Telemetry>({ sides: '', height: '—', inZone: null });
+  const [tele, setTele] = useState<Telemetry>({ tag: '', height: '—', inZone: null });
   const videoBox = useRef<HTMLDivElement>(null);
   const running = status === 'running';
   const meta = sourceId ? SOURCE_META[sourceId] : null;
@@ -61,9 +66,9 @@ export function TrackingStage() {
 
   return (
     <div className="stage-bg relative min-h-0 flex-1 overflow-hidden rounded-card border">
-      <div ref={videoBox} className={`absolute inset-0 opacity-20 ${preview && showPreview ? '' : 'hidden'}`} />
+      <div ref={videoBox} className={`absolute inset-0 opacity-70 ${preview && showPreview ? '' : 'hidden'}`} />
 
-      {running && <OptimalZone aspect={aspect} tag={tele.sides && `${tele.sides} · tracking`} />}
+      {running && <OptimalZone aspect={aspect} tag={tele.tag} />}
       {running && <SkeletonCanvas aspect={aspect} />}
 
       <div className="absolute left-[15px] top-[15px] flex items-center gap-2.5 rounded-ctrl border bg-inset py-1.5 pl-2.5 pr-3">
