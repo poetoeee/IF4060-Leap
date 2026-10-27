@@ -3,12 +3,13 @@ import { Sidebar } from '@/components/Sidebar';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { DemoPage } from '@/features/demo/DemoPage';
 import { ProfilePage } from '@/features/profiles/ProfilePage';
+import { useTrackingRuntime } from '@/tracking/useTracking';
 
 function Shell() {
+  useTrackingRuntime();
   return (
     <div className="flex min-h-full">
-      {/* TODO(P1): wire to the active TrackingSource status. */}
-      <Sidebar sourceName="Camera" sourceStatus="idle" sourceTone="muted" />
+      <Sidebar />
       <main className="min-w-0 flex-1">
         <Outlet />
       </main>

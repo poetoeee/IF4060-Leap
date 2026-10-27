@@ -1,3 +1,5 @@
+import type { SourceId } from '@/tracking/types';
+
 export type GestureId =
   | 'swipe_left'
   | 'swipe_right'
@@ -8,3 +10,14 @@ export type GestureId =
   | 'open_palm'
   | 'tap'
   | 'circle';
+
+export type Sensitivity = 'relaxed' | 'balanced' | 'strict';
+
+export interface Settings {
+  controllerEnabled: boolean;
+  activeProfileId: string;
+  sensitivity: Sensitivity;
+  trackingSource: SourceId;
+  cameraPreview: boolean;
+  userName: string;
+}

@@ -19,4 +19,10 @@
   .t-overline {
     @apply font-mono text-overline uppercase;
   }
+  /* Tracking stage: IR vignette + scanlines (Figma 15:161). */
+  .stage-bg {
+    background:
+      repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.03) 0 1px, transparent 1px 5px),
+      radial-gradient(ellipse 55% 45% at 50% 50%, rgb(51 48 46) 0%, rgb(34 33 31) 30%, rgb(18 17 15) 60%, rgb(9 8 8) 100%);
+  }
 }

@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { SOURCE_META } from '@/tracking/labels';
+import type { SourceStatus } from '@/tracking/types';
+import { useTracking } from '@/tracking/useTracking';
 import { Icon } from './Icon';
 import { LedMark } from './LedMark';
 import { NavItemMain, NavItemSub } from './NavItem';
@@ -12,14 +15,18 @@ const PROFILES = [
 ];
 const ACTIVE_PROFILE_ID = 'presentation';
 
-interface SidebarProps {
-  sourceName: string;
-  sourceStatus: string;
-  sourceTone: DotTone;
-}
+const STATUS: Record<SourceStatus, { text: string; tone: DotTone }> = {
+  running: { text: 'connected', tone: 'success' },
+  starting: { text: 'starting', tone: 'warning' },
+  idle: { text: 'idle', tone: 'muted' },
+  'no-device': { text: 'disconnected', tone: 'danger' },
+  error: { text: 'error', tone: 'danger' },
+};
 
-export function Sidebar({ sourceName, sourceStatus, sourceTone }: SidebarProps) {
+export function Sidebar() {
   const [open, setOpen] = useState(true);
+  const { sourceId, status, fps } = useTracking();
+  const st = STATUS[status];
 
   return (
     <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col gap-[26px] border-r bg-sidebar px-[14px] pb-4 pt-[22px]">
@@ -71,10 +78,10 @@ export function Sidebar({ sourceName, sourceStatus, sourceTone }: SidebarProps) 
       <div className="flex-1" />
 
       <div className="flex items-center gap-2.5 rounded-ctrl-lg border bg-surface px-3 py-2.5">
-        <StatusDot tone={sourceTone} />
+        <StatusDot tone={st.tone} />
         <div className="flex min-w-0 flex-col gap-px whitespace-nowrap">
-          <span className="text-label">{sourceName}</span>
-          <span className="t-overline text-fg-muted">{sourceStatus}</span>
+          <span className="text-label">{sourceId ? SOURCE_META[sourceId].name : '—'}</span>
+          <span className="t-overline text-fg-muted">{status === 'running' ? `${st.text} · ${fps} fps` : st.text}</span>
         </div>
       </div>
 

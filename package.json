@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "eslint .",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "setup:mediapipe": "node scripts/setup-mediapipe.mjs",
+    "postinstall": "node scripts/setup-mediapipe.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",
