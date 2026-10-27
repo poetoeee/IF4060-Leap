@@ -16,7 +16,7 @@ export function DebugOverlay() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyD' && !e.defaultPrevented && !e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey && !isTyping(e.target)) setOpen((o) => !o);
+      if (e.code === 'KeyD' && e.isTrusted && !e.defaultPrevented && !e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey && !isTyping(e.target)) setOpen((o) => !o);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

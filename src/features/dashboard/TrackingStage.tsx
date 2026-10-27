@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/Button';
+import { GestureGlyph } from '@/components/GestureGlyph';
 import { Icon } from '@/components/Icon';
+import { KeyCaps } from '@/components/KeyCap';
 import { LedMark } from '@/components/LedMark';
 import { StatusDot } from '@/components/StatusDot';
 import { Toggle } from '@/components/Toggle';
+import { GESTURE } from '@/mapping/gestures';
 import { recognizer } from '@/pipeline';
+import { useController } from '@/pipeline/controller';
 import { useAppStore } from '@/store';
 import { palmCenter, project } from '@/tracking/hand';
 import { SOURCE_META } from '@/tracking/labels';
@@ -104,6 +108,8 @@ export function TrackingStage() {
         />
       )}
 
+      {running && <LastRecognized />}
+
       <div className="absolute bottom-[17px] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
         <LedMark state={running ? 'live' : 'idle'} />
         <span className="t-overline whitespace-nowrap text-fg-muted">{meta?.stageLabel}</span>
@@ -138,6 +144,35 @@ function OptimalZone({ aspect, tag }: { aspect: number; tag: string }) {
           {tag}
         </span>
       )}
+    </div>
+  );
+}
+
+const OUTCOME_SUFFIX = { sent: 'sent', paused: 'paused', unmapped: '', disabled: 'off', toggle: '' } as const;
+
+/** Figma 15:316: latest recognised gesture, bottom-right of the stage. */
+function LastRecognized() {
+  const e = useController((s) => s.recent[0]);
+  if (!e) return null;
+  const sent = e.outcome === 'sent';
+  const suffix = OUTCOME_SUFFIX[e.outcome];
+  return (
+    <div className={`absolute bottom-[15px] right-[15px] flex items-center gap-3 rounded-[14px] border bg-surface py-2.5 pl-2.5 pr-3.5 ${sent ? 'border-accent' : 'border-border-strong'}`}>
+      <span className={`flex size-11 items-center justify-center rounded-[12px] ${sent ? 'bg-accent-subtle' : 'bg-surface-2'}`}>
+        <GestureGlyph gesture={e.gesture} size={28} />
+      </span>
+      <div className="flex flex-col gap-1 whitespace-nowrap">
+        <span className="text-label">
+          {GESTURE[e.gesture].name} · {Math.round(e.confidence * 100)}%
+        </span>
+        <span className="flex items-center gap-2">
+          {e.caps.length > 0 && <KeyCaps caps={e.caps} dim={!sent} />}
+          <span className="text-caption text-fg-secondary">
+            {e.label}
+            {suffix && ` · ${suffix}`}
+          </span>
+        </span>
+      </div>
     </div>
   );
 }

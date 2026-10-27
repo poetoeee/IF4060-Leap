@@ -1,0 +1,4 @@
+# Python 3.8 x64. websockets 14+ dropped Python 3.8.
+websockets>=10,<14
+# leap: install from a clone of https://github.com/ultraleap/leapc-python-bindings
+#   pip install -e <clone>/leapc-python-api

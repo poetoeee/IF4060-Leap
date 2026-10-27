@@ -25,7 +25,7 @@ export class MockSource extends BaseSource {
   }
 
   private onKey = (e: KeyboardEvent) => {
-    if (e.defaultPrevented || e.repeat || e.ctrlKey || e.altKey || e.metaKey || isTyping(e.target)) return;
+    if (!e.isTrusted || e.defaultPrevented || e.repeat || e.ctrlKey || e.altKey || e.metaKey || isTyping(e.target)) return;
     const g = MOCK_KEYS[Number(e.code.replace('Digit', '')) - 1];
     if (g) this.playing = { g, side: e.shiftKey ? 'left' : 'right', t0: performance.now() };
   };
