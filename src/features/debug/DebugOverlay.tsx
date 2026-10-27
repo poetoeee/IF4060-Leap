@@ -3,6 +3,7 @@ import { isTyping } from '@/lib/dom';
 import { recognizer, useGestureLog } from '@/pipeline';
 import type { HandDebug } from '@/recognizer/engine';
 import { useAppStore } from '@/store';
+import { useToast } from '@/store/toast';
 import { useTracking } from '@/tracking/useTracking';
 
 /** `D` toggles: fps, raw features, detector state, recent events with latency. */
@@ -15,7 +16,7 @@ export function DebugOverlay() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyD' && !e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey && !isTyping(e.target)) setOpen((o) => !o);
+      if (e.code === 'KeyD' && !e.defaultPrevented && !e.repeat && !e.ctrlKey && !e.altKey && !e.metaKey && !isTyping(e.target)) setOpen((o) => !o);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -73,6 +74,18 @@ export function DebugOverlay() {
           </div>
         ))}
       </div>
+
+      <button
+        type="button"
+        className="pointer-events-auto mt-2 w-full rounded-ctrl border border-border-strong py-1.5 text-danger hover:bg-danger-subtle"
+        onClick={() => {
+          if (!window.confirm('Reset all profiles and mappings to the demo seed?')) return;
+          useAppStore.getState().resetDemoData();
+          useToast.getState().show({ title: 'Demo data reset', message: 'Profiles are back to the seed.' });
+        }}
+      >
+        Reset demo data
+      </button>
     </div>
   );
 }

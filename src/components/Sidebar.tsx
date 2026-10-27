@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAppStore, useProfiles } from '@/store';
 import { SOURCE_META } from '@/tracking/labels';
 import type { SourceStatus } from '@/tracking/types';
 import { useTracking } from '@/tracking/useTracking';
@@ -6,14 +7,6 @@ import { Icon } from './Icon';
 import { LedMark } from './LedMark';
 import { NavItemMain, NavItemSub } from './NavItem';
 import { StatusDot, type DotTone } from './StatusDot';
-
-// TODO(P3): read profiles + active profile from the store.
-const PROFILES = [
-  { id: 'template', name: 'Mapping Template', caption: 'Base · read-only' },
-  { id: 'presentation', name: 'Presentation Mode', caption: 'Custom profile' },
-  { id: 'web-browsing', name: 'Web Browsing', caption: 'Custom profile' },
-];
-const ACTIVE_PROFILE_ID = 'presentation';
 
 const STATUS: Record<SourceStatus, { text: string; tone: DotTone }> = {
   running: { text: 'connected', tone: 'success' },
@@ -26,6 +19,8 @@ const STATUS: Record<SourceStatus, { text: string; tone: DotTone }> = {
 export function Sidebar() {
   const [open, setOpen] = useState(true);
   const { sourceId, status, fps } = useTracking();
+  const profiles = useProfiles();
+  const activeId = useAppStore((s) => s.settings.activeProfileId);
   const st = STATUS[status];
 
   return (
@@ -55,16 +50,16 @@ export function Sidebar() {
         {open && (
           <div className="pl-5">
             <div className="flex flex-col gap-0.5 border-l border-border-strong pl-1.5">
-              {PROFILES.map((p) => (
+              {profiles.map((p) => (
                 <NavItemSub
                   key={p.id}
                   to={`/profiles/${p.id}`}
                   label={p.name}
-                  caption={p.caption}
+                  caption={p.kind === 'template' ? 'Base · read-only' : 'Custom profile'}
                   trailing={
-                    p.id === 'template' ? (
+                    p.kind === 'template' ? (
                       <Icon name="lock" size={14} className="text-fg-muted" />
-                    ) : p.id === ACTIVE_PROFILE_ID ? (
+                    ) : p.id === activeId ? (
                       <StatusDot tone="accent" size={7} />
                     ) : null
                   }

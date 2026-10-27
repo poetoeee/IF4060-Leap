@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import { holdThresholds } from '@/mapping/rules';
 import { Recognizer } from '@/recognizer/engine';
 import type { GestureEvent } from '@/recognizer/types';
-import { useAppStore } from '@/store';
+import { getActiveProfile, useAppStore } from '@/store';
 import { subscribeFrames, useTrackingStore } from '@/tracking/manager';
 
 export interface LoggedEvent extends GestureEvent {
@@ -40,15 +41,18 @@ export function startPipeline() {
     }
     if (logged.length) useGestureLog.setState((s) => ({ events: [...logged.reverse(), ...s.events].slice(0, LOG_SIZE) }));
   });
-  const offSensitivity = useAppStore.subscribe((s, prev) => {
+  const syncHolds = () => recognizer.setHoldThresholds(holdThresholds(getActiveProfile()));
+  syncHolds();
+  const offSettings = useAppStore.subscribe((s, prev) => {
     if (s.settings.sensitivity !== prev.settings.sensitivity) recognizer.setSensitivity(s.settings.sensitivity);
+    if (s.profiles !== prev.profiles || s.settings.activeProfileId !== prev.settings.activeProfileId) syncHolds();
   });
   const offSource = useTrackingStore.subscribe((s, prev) => {
     if (s.sourceId !== prev.sourceId) recognizer.reset();
   });
   return () => {
     offFrames();
-    offSensitivity();
+    offSettings();
     offSource();
   };
 }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
+import { ToastHost } from '@/components/Toast';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { DebugOverlay } from '@/features/debug/DebugOverlay';
 import { DemoPage } from '@/features/demo/DemoPage';
@@ -18,6 +19,7 @@ function Shell() {
         <Outlet />
       </main>
       <DebugOverlay />
+      <ToastHost />
     </div>
   );
 }

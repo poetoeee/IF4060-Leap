@@ -24,6 +24,36 @@ describe('app store', () => {
     expect(again.useAppStore.getState().settings.trackingSource).toBe('mock');
   });
 
+  it('seeds Presentation Mode and Web Browsing on first run', async () => {
+    const { useAppStore } = await load();
+    expect(useAppStore.getState().profiles.map((p) => p.id)).toEqual(['presentation', 'web-browsing']);
+  });
+
+  it('add, edit, toggle and delete survive a reload', async () => {
+    const { useAppStore } = await load();
+    const s = useAppStore.getState();
+    expect(s.addMapping('presentation', { gesture: 'swipe_down', hand: 'right', action: { type: 'key', key: 'b' }, label: 'Black screen' })).toEqual({ ok: true });
+    expect(s.addMapping('presentation', { gesture: 'swipe_down', hand: 'any', action: { type: 'key', key: 'x' } }).ok).toBe(false);
+
+    const fist = useAppStore.getState().profiles[0]!.mappings.find((m) => m.gesture === 'fist')!;
+    s.updateMapping('presentation', { ...fist, action: { type: 'key', key: 'q' } });
+    s.toggleMapping('presentation', fist.id);
+    const pinch = useAppStore.getState().profiles[0]!.mappings.find((m) => m.gesture === 'pinch')!;
+    s.removeMapping('presentation', pinch.id);
+
+    const again = (await load()).useAppStore.getState().profiles[0]!;
+    expect(again.mappings.find((m) => m.gesture === 'swipe_down')).toMatchObject({ source: 'custom', label: 'Black screen' });
+    expect(again.mappings.find((m) => m.gesture === 'fist')).toMatchObject({ source: 'edited', enabled: false, action: { key: 'q' } });
+    expect(again.mappings.some((m) => m.gesture === 'pinch')).toBe(false);
+  });
+
+  it('resetDemoData restores the seed', async () => {
+    const { useAppStore } = await load();
+    useAppStore.getState().removeMapping('presentation', 'p-fist');
+    useAppStore.getState().resetDemoData();
+    expect(useAppStore.getState().profiles[0]!.mappings.some((m) => m.id === 'p-fist')).toBe(true);
+  });
+
   it('fills defaults for keys missing from saved data', async () => {
     mem.set('gesturmap:v1', JSON.stringify({ state: { settings: { sensitivity: 'strict' } }, version: 1 }));
     const { useAppStore } = await load();
