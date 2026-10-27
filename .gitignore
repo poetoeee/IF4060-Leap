@@ -9,3 +9,8 @@ __pycache__/
 *.pyc
 .venv/
 public/mediapipe/
+
+# local-only dev notes
+CLAUDE.md
+docs/
+.claude/

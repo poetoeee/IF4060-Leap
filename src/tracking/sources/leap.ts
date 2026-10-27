@@ -29,7 +29,7 @@ function isHand(h: unknown): h is HandState {
   );
 }
 
-/** Validates a bridge message (PRD §4.3); returns null for anything malformed. */
+/** Validates a bridge message (see bridge/README.md); returns null for anything malformed. */
 export function parseBridgeMessage(raw: string): BridgeMessage | null {
   let msg: { type?: unknown; data?: Record<string, unknown> };
   try {

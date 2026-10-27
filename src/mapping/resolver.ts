@@ -13,7 +13,7 @@ export type Resolution =
 
 const holdOf = (m: Mapping) => m.holdMs ?? DEFAULT_HOLD_MS;
 
-/** PRD §6.2: reserved pause rule → paused → active profile mapping. */
+/** Order: reserved pause rule → paused → active profile mapping. */
 export function resolve(e: GestureEvent, controllerEnabled: boolean, profile: Profile | undefined): Resolution {
   if (e.gesture === 'open_palm' && e.hand === 'left') {
     return e.holdMs === PAUSE_HOLD_MS ? { kind: 'toggle', enabled: !controllerEnabled } : { kind: 'ignored' };

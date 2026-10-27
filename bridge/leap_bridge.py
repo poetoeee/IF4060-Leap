@@ -1,4 +1,4 @@
-"""GesturMap Leap bridge: Ultraleap hand tracking -> ws://127.0.0.1:8765 (PRD-MVP section 4.3).
+"""GesturMap Leap bridge: Ultraleap hand tracking -> ws://127.0.0.1:8765.
 
 Requires Python 3.8 x64, Ultraleap Gemini hand tracking service, and the official
 leapc-python-bindings (`pip install -e leapc-python-api`). See bridge/README.md.

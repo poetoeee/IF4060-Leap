@@ -4,7 +4,7 @@ import { makeHand, type Pose } from './mockHand';
 export type MockGesture = 'swipe_left' | 'swipe_right' | 'swipe_up' | 'swipe_down' | 'pinch' | 'fist' | 'open_palm';
 export type Side = Pose['side'];
 
-/** Keys 1–7 in PRD order. */
+/** Keys 1–7: swipe left/right/up/down, pinch, fist, open palm. */
 export const MOCK_KEYS: MockGesture[] = ['swipe_left', 'swipe_right', 'swipe_up', 'swipe_down', 'pinch', 'fist', 'open_palm'];
 
 type Key = { t: number; dx?: number; dy?: number; curl?: number; thumb?: number; pinch?: number };

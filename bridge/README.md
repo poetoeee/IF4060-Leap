@@ -53,4 +53,4 @@ Select **Leap** in the app: the skeleton moves and the HUD shows Swipe Right. St
 { "type": "status", "data": { "service": "running|missing", "device": "connected|disconnected" } }
 ```
 
-`HandState` is the common format from `docs/PRD-MVP.md` §4.1: 21 landmarks in MediaPipe order (wrist, thumb, index…pinky), millimetres, +x right, +y up (recentred by −200 mm), +z toward the user, plus `native.grab` / `native.pinch` from LeapC.
+`HandState` is the app's common hand format (`src/tracking/types.ts`): 21 landmarks in MediaPipe order (wrist, thumb, index…pinky), millimetres, +x right, +y up (recentred by −200 mm), +z toward the user, plus `native.grab` / `native.pinch` from LeapC.
