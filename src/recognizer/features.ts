@@ -10,6 +10,8 @@ export interface Features {
   extendedCount: number;
   pinch: number;
   grab: number;
+  /** Index tip distance from the wrist ÷ index MCP distance: ~2 straight, < 1.2 curled into a fist. */
+  indexReach: number;
   /** Palm velocity over the last ~150 ms (mm/s). */
   vel: Vec3;
   speed: number;
@@ -36,8 +38,15 @@ export function extendedFingers(lm: Vec3[]): boolean[] {
   return [thumb, ...FINGERS.map(([, pip, tip]) => dist(lm[tip]!, w) / dist(lm[pip]!, w) > 1.15)];
 }
 
+/**
+ * Landmarks sit at the fingertip ends, so touching pads still leave ~0.2 handSize between tips,
+ * and camera depth is noisy — measure the thumb–index gap in the image plane: ≤ 0.2 hs → 1, ≥ 0.7 hs → 0.
+ */
 export function pinchOf(h: HandState, size = handSize(h)): number {
-  return h.native?.pinch ?? clamp01(1 - dist(h.landmarks[4]!, h.landmarks[8]!) / (0.35 * size));
+  if (h.native?.pinch !== undefined) return h.native.pinch;
+  const a = h.landmarks[4]!;
+  const b = h.landmarks[8]!;
+  return clamp01(1 - (Math.hypot(a.x - b.x, a.y - b.y) - 0.2 * size) / (0.5 * size));
 }
 
 export function grabOf(h: HandState): number {
@@ -64,6 +73,7 @@ export function computeFeatures(h: HandState, t: number, history: Sample[]): Fea
     extendedCount: extended.filter(Boolean).length,
     pinch: pinchOf(h, size),
     grab: grabOf(h),
+    indexReach: dist(h.landmarks[8]!, h.landmarks[0]!) / dist(h.landmarks[5]!, h.landmarks[0]!),
     vel,
     speed: Math.hypot(vel.x, vel.y),
     confidence: h.confidence,

@@ -24,6 +24,7 @@ const RETURN_BLOCK_MS = 350;
 const RETURN_SETTLE_MS = 100;
 const CANDIDATE_DWELL_MS = 250;
 const HOLD_GRACE_MS = 100;
+const PINCH_HOLD_MS = 100;
 
 type Dir = 'left' | 'right' | 'up' | 'down';
 const OPPOSITE: Record<Dir, Dir> = { left: 'right', right: 'left', up: 'down', down: 'up' };
@@ -44,6 +45,7 @@ export class HandDetectors {
   private motion = { active: false, best: 0, dir: 'right' as Dir, fired: false };
 
   private pinchArmed = false;
+  private pinchSince: number | null = null;
   private fistArmed = true;
   private fistSince: number | null = null;
   private dwell = new Map<GestureId, number>();
@@ -121,14 +123,23 @@ export class HandDetectors {
   private detectPinch(f: Features, { k, confirm }: RecognizerConfig): Hit[] {
     const on = Math.min(0.95, 0.8 * k);
     if (f.pinch < 0.45) this.pinchArmed = true;
-    if (!this.pinchArmed || f.grab >= 0.7) return this.settle('pinch');
-    const conf = score(over(f.pinch, on), f.confidence);
-    if (conf >= confirm) {
-      this.pinchArmed = false;
-      this.dwell.delete('pinch');
-      return [{ kind: 'fire', gesture: 'pinch', confidence: conf }];
+    // A forming fist also brings thumb and index tips together; a pinch keeps the index reaching out
+    // and is held briefly, while a fist passes through that shape in a frame or two.
+    if (!this.pinchArmed || f.grab >= 0.7 || f.indexReach < 1.2) {
+      this.pinchSince = null;
+      return this.settle('pinch');
     }
-    return this.nearMiss('pinch', conf, confirm, f.t);
+    const conf = score(over(f.pinch, on), f.confidence);
+    if (conf < confirm) {
+      this.pinchSince = null;
+      return this.nearMiss('pinch', conf, confirm, f.t);
+    }
+    this.pinchSince ??= f.t;
+    if (f.t - this.pinchSince < PINCH_HOLD_MS) return [];
+    this.pinchArmed = false;
+    this.pinchSince = null;
+    this.dwell.delete('pinch');
+    return [{ kind: 'fire', gesture: 'pinch', confidence: conf }];
   }
 
   private detectFist(f: Features, { k, confirm }: RecognizerConfig): Hit[] {

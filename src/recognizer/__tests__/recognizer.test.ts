@@ -4,7 +4,7 @@ import { makeHand, type Pose } from '@/tracking/sources/mockHand';
 import { MOCK_KEYS, poseAt, restPose, scriptDuration, type MockGesture, type Side } from '@/tracking/sources/mockScripts';
 import type { HandState } from '@/tracking/types';
 import { Recognizer } from '../engine';
-import { extendedFingers, grabOf } from '../features';
+import { extendedFingers, grabOf, pinchOf } from '../features';
 import type { GestureEvent } from '../types';
 
 const DT = 1000 / 30;
@@ -52,6 +52,14 @@ describe('rest pose', () => {
     expect(grabOf(h)).toBeLessThan(0.35);
   });
 
+  it('reads a camera-style pinch: tips ~0.25 handSize apart, noisy depth', () => {
+    const h = makeHand({ ...restPose('right'), pinch: 1 });
+    const size = Math.hypot(h.landmarks[9]!.x - h.landmarks[0]!.x, h.landmarks[9]!.y - h.landmarks[0]!.y);
+    const tip = h.landmarks[4]!;
+    h.landmarks[4] = { x: tip.x + 0.25 * size, y: tip.y, z: tip.z + 25 };
+    expect(pinchOf(h)).toBeGreaterThan(0.8);
+  });
+
   it('fires nothing over 3 s', () => {
     expect(fired(run(null, { restMs: 3000 }))).toEqual([]);
   });
@@ -89,7 +97,7 @@ describe('robustness', () => {
       evs.push(...rec.process({ source: 'mock', timestamp: t, hands: [makeHand({ ...restPose('right'), curl: 0.08, thumb: 0.6, pinch })] }));
       t += DT;
     };
-    for (const p of [0, 0, 1, 1, 0, 0, 1, 1]) feed(p); // two pinches ~130 ms apart
+    for (const p of [0, 0, 1, 1, 1, 1, 0, 0, 1, 1, 1, 1]) feed(p); // two held pinches ~200 ms apart
     expect(fired(evs)).toEqual(['pinch:right']);
   });
 
