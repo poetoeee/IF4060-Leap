@@ -1,0 +1,13 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Gesture Glyph">
+<g id="Group">
+<path id="Vector" d="M23.9 14.8V10.8C23.9 10.3757 23.7314 9.96869 23.4314 9.66863C23.1313 9.36857 22.7243 9.2 22.3 9.2C21.8757 9.2 21.4687 9.36857 21.1686 9.66863C20.8686 9.96869 20.7 10.3757 20.7 10.8" stroke-width="1.896" stroke-linecap="round" stroke-linejoin="round" stroke="#F3EEE7"/>
+<path id="Vector_2" d="M20.7 14V9.2C20.7 8.77565 20.5314 8.36869 20.2314 8.06863C19.9313 7.76857 19.5243 7.6 19.1 7.6C18.6757 7.6 18.2687 7.76857 17.9686 8.06863C17.6686 8.36869 17.5 8.77565 17.5 9.2V10.8" stroke-width="1.896" stroke-linecap="round" stroke-linejoin="round" stroke="#F3EEE7"/>
+<path id="Vector_3" d="M17.5 14.4V10.8C17.5 10.3757 17.3314 9.96869 17.0314 9.66863C16.7313 9.36857 16.3243 9.2 15.9 9.2C15.4757 9.2 15.0687 9.36857 14.7686 9.66863C14.4686 9.96869 14.3 10.3757 14.3 10.8V17.2" stroke-width="1.896" stroke-linecap="round" stroke-linejoin="round" stroke="#F3EEE7"/>
+<path id="Vector_4" d="M23.9 12.4C23.9 11.9757 24.0686 11.5687 24.3686 11.2686C24.6687 10.9686 25.0757 10.8 25.5 10.8C25.9243 10.8 26.3313 10.9686 26.6314 11.2686C26.9314 11.5687 27.1 11.9757 27.1 12.4V17.2C27.1 18.8974 26.4257 20.5253 25.2255 21.7255C24.0253 22.9257 22.3974 23.6 20.7 23.6H19.1C16.86 23.6 15.5 22.912 14.308 21.728L11.428 18.848C11.1527 18.5432 11.0053 18.1441 11.0161 17.7336C11.0269 17.323 11.1952 16.9323 11.4862 16.6424C11.7771 16.3525 12.1684 16.1855 12.579 16.1762C12.9896 16.1668 13.3881 16.3157 13.692 16.592L15.1 18" stroke-width="1.896" stroke-linecap="round" stroke-linejoin="round" stroke="#F3EEE7"/>
+</g>
+<path id="Vector_5" d="M8 16H2M4.6 18.8L2 16L4.6 13.2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke="#FF6A3D"/>
+<path id="Vector_6" d="M8 10.5H5.5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke="#FF6A3D"/>
+<path id="Vector_7" d="M8 21.5H5.5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" stroke="#FF6A3D"/>
+</g>
+</svg>

@@ -1,0 +1,30 @@
+/* Figma variables — "Infrared" theme. RGB channels so Tailwind opacity modifiers work. */
+:root {
+  --bg-app: 17 16 15;
+  --bg-sidebar: 21 19 17;
+  --bg-surface: 26 24 22;
+  --bg-surface-2: 34 31 28;
+  --bg-surface-3: 43 39 35;
+  --bg-inset: 10 9 8;
+
+  --border-default: 44 40 36;
+  --border-strong: 67 61 55;
+
+  --text-primary: 243 238 231;
+  --text-secondary: 182 173 162;
+  --text-muted: 126 117 107;
+  --text-on-accent: 28 10 3;
+
+  --accent-default: 255 106 61;
+  --accent-hover: 255 140 102;
+  --accent-subtle: 51 24 15;
+  --accent-glow: 255 181 156;
+
+  --success-default: 108 212 142;
+  --success-subtle: 22 39 27;
+  --warning-default: 237 187 79;
+  --warning-subtle: 48 37 15;
+  --danger-default: 255 98 116;
+  --danger-subtle: 52 21 25;
+  --neutral-subtle: 43 39 35;
+}
