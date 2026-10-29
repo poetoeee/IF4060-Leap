@@ -7,7 +7,7 @@ import { BaseSource } from './base';
  * MediaPipe labels handedness assuming a mirrored (selfie) image. Raw webcam frames are not
  * mirrored, so its "Left" is the user's right hand. Flip this if a real hand shows the wrong side.
  */
-export const CAMERA_SWAP_HANDEDNESS = false;
+export const CAMERA_SWAP_HANDEDNESS = true;
 
 const BASE = `${import.meta.env.BASE_URL}mediapipe`;
 let landmarker: Promise<HandLandmarker> | null = null;

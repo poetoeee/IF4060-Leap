@@ -11,6 +11,8 @@ import { startPipeline } from '@/pipeline';
 import { startController } from '@/pipeline/controller';
 import { useTrackingRuntime } from '@/tracking/useTracking';
 
+import { FloatingHudOverlay } from '@/features/hud/FloatingHudOverlay';
+
 function Shell() {
   useTrackingRuntime();
   useEffect(startPipeline, []);
@@ -31,6 +33,7 @@ function Shell() {
 export function App() {
   return (
     <Routes>
+      <Route path="hud-overlay" element={<FloatingHudOverlay />} />
       <Route element={<Shell />}>
         <Route index element={<DashboardPage />} />
         <Route path="demo" element={<DemoPage />} />

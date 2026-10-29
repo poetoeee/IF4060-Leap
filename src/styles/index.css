@@ -13,6 +13,12 @@
   body {
     @apply bg-app font-sans text-body text-fg-primary antialiased;
   }
+  html.is-overlay,
+  body.is-overlay,
+  #root.is-overlay {
+    background: transparent !important;
+    overflow: hidden;
+  }
 }
 
 @layer components {

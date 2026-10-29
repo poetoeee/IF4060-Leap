@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { WebActionExecutor } from '@/executor/web';
+import { NativeActionExecutor } from '@/executor/native';
 import type { ActionExecutor } from '@/executor/types';
 import { actionCaps, actionSummary } from '@/mapping/format';
 import { resolve } from '@/mapping/resolver';
@@ -35,6 +35,20 @@ interface ControllerState {
 }
 
 export const useController = create<ControllerState>(() => ({ recent: [], hud: null }));
+
+if (typeof window !== 'undefined') {
+  useController.subscribe((s, prev) => {
+    if (s.hud !== prev.hud) {
+      const activeProfile = getActiveProfile();
+      const enabled = useAppStore.getState().settings.controllerEnabled;
+      window.electronAPI?.updateHud?.({
+        hud: s.hud,
+        profileName: activeProfile?.name ?? '',
+        enabled,
+      });
+    }
+  });
+}
 
 const HUD_MS = 1200;
 const HUD_TOGGLE_MS = 2500;
@@ -100,7 +114,7 @@ function onEvent(e: GestureEvent, executor: ActionExecutor) {
 
 /** Resolves recognised gestures and executes actions. Returns a disposer. */
 export function startController() {
-  const executor = new WebActionExecutor();
+  const executor = new NativeActionExecutor();
   const offGestures = subscribeGestures((e) => onEvent(e, executor));
   const onKey = (e: KeyboardEvent) => {
     if (e.isTrusted && e.ctrlKey && e.altKey && e.code === 'KeyG') {
