@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
   trackingSource: 'camera',
   cameraPreview: true,
   userName: 'Edo',
+  leapSdkPath: '',
 };
 
 type Result = { ok: true } | { ok: false; error: string };

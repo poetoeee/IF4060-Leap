@@ -47,4 +47,5 @@ export interface Settings {
   trackingSource: SourceId;
   cameraPreview: boolean;
   userName: string;
+  leapSdkPath?: string;
 }

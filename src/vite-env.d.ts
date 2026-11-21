@@ -24,9 +24,11 @@ interface Window {
     minimizeToTray?: () => Promise<void>;
     updateHud?: (hud: unknown) => Promise<{ ok: boolean }>;
     onHudData?: (callback: (data: unknown) => void) => () => void;
-    startBridge?: () => Promise<BridgeStatusPayload>;
+    startBridge?: (options?: { sdkPath?: string }) => Promise<BridgeStatusPayload>;
     stopBridge?: () => Promise<BridgeStatusPayload>;
     getBridgeStatus?: () => Promise<BridgeStatusPayload>;
+    getDefaultLeapSdkPath?: () => Promise<string>;
+    browseLeapSdkPath?: () => Promise<string | null>;
     onBridgeStatus?: (callback: (status: BridgeStatusPayload) => void) => () => void;
   };
 }

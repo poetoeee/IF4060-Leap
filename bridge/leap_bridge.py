@@ -10,13 +10,21 @@ Messages (JSON):
 import asyncio
 import json
 import os
+import platform
 import sys
 import threading
 import time
+import types
 
-# Auto-discover local leapc-python-bindings if running from repo or adjacent build directory
+# Auto-discover local leapc-python-bindings if running from repo or packaged app resources
 _HERE = os.path.abspath(os.path.dirname(__file__))
-for _base in (_HERE, os.path.dirname(_HERE), os.path.dirname(os.path.dirname(_HERE)), os.path.dirname(os.path.dirname(os.path.dirname(_HERE)))):
+_SEARCH_BASES = [
+    _HERE,
+    os.path.dirname(_HERE),
+    os.path.dirname(os.path.dirname(_HERE)),
+    os.path.dirname(os.path.dirname(os.path.dirname(_HERE))),
+]
+for _base in _SEARCH_BASES:
     for _sub in (
         os.path.join(_base, "leapc-python-bindings", "leapc-python-api", "src"),
         os.path.join(_base, "leapc-python-bindings", "leapc-cffi", "src"),
@@ -24,7 +32,146 @@ for _base in (_HERE, os.path.dirname(_HERE), os.path.dirname(os.path.dirname(_HE
         if os.path.isdir(_sub) and _sub not in sys.path:
             sys.path.insert(0, _sub)
 
+
+def _sanitise_leapc_header(input_str: str) -> str:
+    """Sanitise LeapC.h so it can be loaded by cffi.FFI().cdef(...) at runtime (ABI mode)."""
+    lines = input_str.replace("\r\n", "\n").split("\n")
+    value_defines = {"LEAP_DISTORTION_MATRIX_N": None}
+    for line in lines:
+        if line.startswith("#define"):
+            parts = line.split(" ")
+            if len(parts) >= 3 and parts[1] in value_defines:
+                value_defines[parts[1]] = parts[2]
+    replacements = {"LEAP_CALL": "", "LEAP_EXPORT": ""}
+    for k, v in value_defines.items():
+        if v is not None:
+            replacements[k] = v
+    replaced = []
+    for line in lines:
+        for k, v in replacements.items():
+            line = line.replace(k, v)
+        replaced.append(line)
+
+    filtered = []
+    if_depth = 0
+    for line in replaced:
+        if line.startswith("#"):
+            stripped = line.replace(" ", "")[1:]
+            if stripped.startswith("if"):
+                if_depth += 1
+            elif stripped.startswith("endif"):
+                if_depth -= 1
+        elif if_depth == 1:
+            if not line.startswith("LEAP_STATIC_ASSERT"):
+                filtered.append(line)
+    return "\n".join(filtered)
+
+
+def _candidate_sdk_dirs():
+    env_sdk = os.getenv("LEAPSDK_INSTALL_LOCATION")
+    candidates = []
+    if env_sdk:
+        candidates.append(env_sdk)
+    sys_name = platform.system()
+    if sys_name == "Windows":
+        candidates.append(r"C:\Program Files\Ultraleap\LeapSDK")
+    elif sys_name == "Darwin":
+        candidates.append("/Applications/Ultraleap Hand Tracking.app/Contents/LeapSDK")
+    else:
+        candidates.extend(["/usr/lib/ultraleap-hand-tracking-service", "/opt/ultraleap/LeapSDK", "/usr"])
+    for base in _SEARCH_BASES:
+        cffi_dir = os.path.join(base, "leapc-python-bindings", "leapc-cffi", "src", "leapc_cffi")
+        if os.path.isdir(cffi_dir):
+            candidates.append(cffi_dir)
+    return candidates
+
+
+def _ensure_leapc_cffi():
+    """Ensure `leapc_cffi` is importable, falling back to CFFI ABI mode (dlopen) so any Python 3.8+ works without C compilation."""
+    bundled_cffi_src = None
+    for base in _SEARCH_BASES:
+        cand = os.path.join(base, "leapc-python-bindings", "leapc-cffi", "src")
+        if os.path.isdir(os.path.join(cand, "leapc_cffi")):
+            bundled_cffi_src = cand
+            break
+
+    try:
+        import leapc_cffi as _existing
+        if hasattr(_existing, "ffi") and hasattr(_existing, "libleapc"):
+            cur_sdk = os.getenv("LEAPSDK_INSTALL_LOCATION", "")
+            if not (cur_sdk and os.path.isdir(os.path.join(cur_sdk, "leapc_cffi"))) and bundled_cffi_src:
+                os.environ["LEAPSDK_INSTALL_LOCATION"] = bundled_cffi_src
+            return
+    except Exception:
+        pass
+
+    from cffi import FFI
+
+    sys_name = platform.system()
+    lib_names = (
+        ["LeapC.dll"]
+        if sys_name == "Windows"
+        else ["libLeapC.5.dylib", "libLeapC.dylib"]
+        if sys_name == "Darwin"
+        else ["libLeapC.so", "libLeapC.so.5"]
+    )
+
+    header_path = os.getenv("LEAPC_HEADER_OVERRIDE")
+    lib_path = os.getenv("LEAPC_LIB_OVERRIDE")
+
+    for sdk in _candidate_sdk_dirs():
+        if not header_path or not os.path.isfile(header_path):
+            for h_rel in (os.path.join("include", "LeapC.h"), "LeapC.h"):
+                cand_h = os.path.join(sdk, h_rel)
+                if os.path.isfile(cand_h):
+                    header_path = cand_h
+                    break
+        if not lib_path or not os.path.isfile(lib_path):
+            for l_dir in (os.path.join("lib", "x64"), "lib", ""):
+                for l_name in lib_names:
+                    cand_l = os.path.join(sdk, l_dir, l_name) if l_dir else os.path.join(sdk, l_name)
+                    if os.path.isfile(cand_l):
+                        lib_path = cand_l
+                        break
+                if lib_path and os.path.isfile(lib_path):
+                    break
+
+    if not header_path or not os.path.isfile(header_path) or not lib_path or not os.path.isfile(lib_path):
+        return
+
+    with open(header_path, "r", encoding="utf-8") as fp:
+        cdef_str = _sanitise_leapc_header(fp.read())
+
+    ffi = FFI()
+    ffi.cdef(cdef_str, packed=True)
+    if sys_name == "Windows" and hasattr(os, "add_dll_directory"):
+        try:
+            os.add_dll_directory(os.path.dirname(lib_path))
+        except Exception:
+            pass
+    libleapc = ffi.dlopen(lib_path)
+
+    mod = types.ModuleType("leapc_cffi")
+    mod.ffi = ffi
+    mod.libleapc = libleapc
+    sys.modules["leapc_cffi"] = mod
+
+    # Unmodified upstream `leap/__init__.py` checks `os.path.isdir(os.path.join(cffi_location, "leapc_cffi"))`
+    # before importing `from leapc_cffi import ffi, libleapc` (which hits sys.modules["leapc_cffi"]).
+    # Point LEAPSDK_INSTALL_LOCATION at a directory that contains a `leapc_cffi` subfolder if the user's SDK doesn't.
+    cur_sdk = os.getenv("LEAPSDK_INSTALL_LOCATION", "")
+    if not (cur_sdk and os.path.isdir(os.path.join(cur_sdk, "leapc_cffi"))):
+        if bundled_cffi_src:
+            os.environ["LEAPSDK_INSTALL_LOCATION"] = bundled_cffi_src
+        else:
+            import tempfile
+            shim_root = os.path.join(tempfile.gettempdir(), "gesturmap-leapc-shim")
+            os.makedirs(os.path.join(shim_root, "leapc_cffi"), exist_ok=True)
+            os.environ["LEAPSDK_INSTALL_LOCATION"] = shim_root
+
+
 try:
+    _ensure_leapc_cffi()
     import leap
 except ImportError as exc:
     raise SystemExit(

@@ -29,9 +29,12 @@ const electronAPI = {
       ipcRenderer.removeListener('hud-data', listener);
     };
   },
-  startBridge: (): Promise<BridgeStatusPayload> => ipcRenderer.invoke('bridge-start'),
+  startBridge: (options?: { sdkPath?: string }): Promise<BridgeStatusPayload> =>
+    ipcRenderer.invoke('bridge-start', options),
   stopBridge: (): Promise<BridgeStatusPayload> => ipcRenderer.invoke('bridge-stop'),
   getBridgeStatus: (): Promise<BridgeStatusPayload> => ipcRenderer.invoke('bridge-status'),
+  getDefaultLeapSdkPath: (): Promise<string> => ipcRenderer.invoke('bridge-default-sdk-path'),
+  browseLeapSdkPath: (): Promise<string | null> => ipcRenderer.invoke('bridge-browse-sdk'),
   onBridgeStatus: (callback: (status: BridgeStatusPayload) => void) => {
     const listener = (_e: Electron.IpcRendererEvent, status: BridgeStatusPayload) => callback(status);
     ipcRenderer.on('bridge-status', listener);

@@ -41,6 +41,7 @@ export function SensorCard() {
     state: 'stopped',
   });
   const [bridgeBusy, setBridgeBusy] = useState(false);
+  const [defaultSdkPath, setDefaultSdkPath] = useState('C:\\Program Files\\Ultraleap\\LeapSDK');
 
   const running = status === 'running';
   const bars = running ? qualityBars(fps, handConfidence) : 0;
@@ -52,6 +53,9 @@ export function SensorCard() {
     const api = window.electronAPI;
     if (!api?.getBridgeStatus) return;
     void api.getBridgeStatus().then((s) => setBridge(s));
+    void api.getDefaultLeapSdkPath?.().then((p) => {
+      if (p) setDefaultSdkPath(p);
+    });
     return api.onBridgeStatus?.((s) => setBridge(s));
   }, []);
 
@@ -70,7 +74,7 @@ export function SensorCard() {
     setBridgeBusy(true);
     try {
       if (nextOn) {
-        const res = await api.startBridge();
+        const res = await api.startBridge({ sdkPath: settings.leapSdkPath || undefined });
         setBridge(res);
         if (res.state === 'running' && settings.trackingSource === 'leap') {
           restartSource();
@@ -81,6 +85,13 @@ export function SensorCard() {
       }
     } finally {
       setBridgeBusy(false);
+    }
+  };
+
+  const browseSdk = async () => {
+    const picked = await window.electronAPI?.browseLeapSdkPath?.();
+    if (picked) {
+      setSetting('leapSdkPath', picked);
     }
   };
 
@@ -105,16 +116,16 @@ export function SensorCard() {
       </div>
 
       {settings.trackingSource === 'leap' && (
-        <div className="flex flex-col gap-2 rounded-ctrl-lg border bg-surface-2 px-3 py-2.5">
+        <div className="flex flex-col gap-2.5 rounded-ctrl-lg border bg-surface-2 px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2">
                 <span className="text-label">Python bridge</span>
                 <Badge tone={bridgeBadge.tone} label={bridgeBadge.label} />
               </div>
-              {/* <span className="text-caption text-fg-muted">
-                {bridge.detail ?? (hasNativeBridge ? 'ws://127.0.0.1:8765 · leap_bridge.py' : 'Run desktop app to launch bridge directly')}
-              </span> */}
+              {bridge.state === 'error' && bridge.detail && (
+                <span className="text-caption text-danger">{bridge.detail}</span>
+              )}
             </div>
             <Toggle
               label="Python bridge"
@@ -122,6 +133,40 @@ export function SensorCard() {
               disabled={!hasNativeBridge || bridgeBusy}
               onChange={(v) => void toggleBridge(v)}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5 border-t pt-2">
+            <div className="flex items-center justify-between">
+              <span className="t-overline text-fg-muted">leapsdk location</span>
+              {settings.leapSdkPath && (
+                <button
+                  type="button"
+                  onClick={() => setSetting('leapSdkPath', '')}
+                  className="text-caption text-fg-muted hover:text-fg-secondary"
+                >
+                  Reset default
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={settings.leapSdkPath ?? ''}
+                onChange={(e) => setSetting('leapSdkPath', e.target.value)}
+                placeholder={defaultSdkPath}
+                aria-label="LeapSDK location"
+                className="h-8 min-w-0 flex-1 rounded-ctrl border bg-inset px-2.5 font-mono text-caption text-fg-primary outline-none placeholder:text-fg-muted focus:border-accent"
+              />
+              {hasNativeBridge && (
+                <button
+                  type="button"
+                  onClick={() => void browseSdk()}
+                  className="h-8 shrink-0 rounded-ctrl border border-border-strong bg-surface-3 px-2.5 text-caption text-fg-primary hover:bg-surface"
+                >
+                  Browse
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

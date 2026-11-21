@@ -1,5 +1,5 @@
-import { app, BrowserWindow, ipcMain, screen } from 'electron';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { app, BrowserWindow, dialog, ipcMain, screen } from 'electron';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
@@ -215,7 +215,30 @@ function resolvePythonEnv(rootDir: string): { pythonExe: string; pythonPathEntri
   return { pythonExe: isWin ? 'python' : 'python3', pythonPathEntries };
 }
 
-async function startBridgeProcess(): Promise<BridgeStatusPayload> {
+function getDefaultLeapSdkPath(): string {
+  if (process.env.LEAPSDK_INSTALL_LOCATION) return process.env.LEAPSDK_INSTALL_LOCATION;
+  if (process.platform === 'win32') return 'C:\\Program Files\\Ultraleap\\LeapSDK';
+  if (process.platform === 'darwin') return '/Applications/Ultraleap Hand Tracking.app/Contents/LeapSDK';
+  return '/usr/lib/ultraleap-hand-tracking-service';
+}
+
+function ensurePythonDependencies(pythonExe: string, requirementsPath: string): void {
+  const check = spawnSync(pythonExe, ['-c', 'import websockets, cffi'], { windowsHide: true });
+  if (check.status === 0) return;
+
+  broadcastBridgeStatus({
+    state: 'starting',
+    detail: 'Installing Python bridge packages (websockets, cffi)…',
+  });
+
+  if (fs.existsSync(requirementsPath)) {
+    spawnSync(pythonExe, ['-m', 'pip', 'install', '--quiet', '-r', requirementsPath], { windowsHide: true });
+  } else {
+    spawnSync(pythonExe, ['-m', 'pip', 'install', '--quiet', 'websockets>=10,<14', 'cffi>=1.15.0'], { windowsHide: true });
+  }
+}
+
+async function startBridgeProcess(customSdkPath?: string): Promise<BridgeStatusPayload> {
   if (bridgeProc && bridgeProc.exitCode === null && !bridgeProc.killed) {
     return bridgeStatus;
   }
@@ -238,12 +261,17 @@ async function startBridgeProcess(): Promise<BridgeStatusPayload> {
   }
 
   const { pythonExe, pythonPathEntries } = resolvePythonEnv(resolved.rootDir);
+  const sdkPath = (customSdkPath && customSdkPath.trim()) || getDefaultLeapSdkPath();
+
   broadcastBridgeStatus({
     state: 'starting',
     detail: `Starting bridge (${path.basename(pythonExe)})…`,
   });
 
   try {
+    const reqPath = path.join(path.dirname(resolved.script), 'requirements.txt');
+    ensurePythonDependencies(pythonExe, reqPath);
+
     const existingPyPath = process.env.PYTHONPATH ? [process.env.PYTHONPATH] : [];
     const combinedPyPath = [...pythonPathEntries, ...existingPyPath].join(path.delimiter);
     const child = spawn(pythonExe, ['-u', resolved.script], {
@@ -251,6 +279,7 @@ async function startBridgeProcess(): Promise<BridgeStatusPayload> {
       env: {
         ...process.env,
         ...(combinedPyPath ? { PYTHONPATH: combinedPyPath } : {}),
+        ...(sdkPath ? { LEAPSDK_INSTALL_LOCATION: sdkPath } : {}),
       },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -349,12 +378,32 @@ ipcMain.handle('bridge-status', async () => {
   return bridgeStatus;
 });
 
-ipcMain.handle('bridge-start', async () => {
-  return startBridgeProcess();
+ipcMain.handle('bridge-start', async (_event, options?: { sdkPath?: string }) => {
+  return startBridgeProcess(options?.sdkPath);
 });
 
 ipcMain.handle('bridge-stop', async () => {
   return stopBridgeProcess();
+});
+
+ipcMain.handle('bridge-default-sdk-path', () => {
+  return getDefaultLeapSdkPath();
+});
+
+ipcMain.handle('bridge-browse-sdk', async () => {
+  const targetWin = win && !win.isDestroyed() ? win : undefined;
+  const res = targetWin
+    ? await dialog.showOpenDialog(targetWin, {
+        title: 'Select Ultraleap LeapSDK Directory',
+        defaultPath: fs.existsSync(getDefaultLeapSdkPath()) ? getDefaultLeapSdkPath() : undefined,
+        properties: ['openDirectory'],
+      })
+    : await dialog.showOpenDialog({
+        title: 'Select Ultraleap LeapSDK Directory',
+        properties: ['openDirectory'],
+      });
+  if (res.canceled || !res.filePaths.length) return null;
+  return res.filePaths[0] ?? null;
 });
 
 ipcMain.handle('execute-action', async (_event, action: NativeAction) => {
