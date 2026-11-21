@@ -2,24 +2,40 @@
 
 The browser can't read the Leap Motion Controller directly. `leap_bridge.py` reads hands from the Ultraleap tracking service and serves them to the web app on `ws://127.0.0.1:8765`. In the app, choose **Dashboard → Sensor → Tracking source → Leap**.
 
-## One-time setup (Windows)
+## One-time setup
 
 1. Install **Ultraleap Gemini 5.20** (hand tracking software). Plug in the controller and check it tracks in the Ultraleap Control Panel.
 2. Install **64-bit Python 3.8+**.
 3. Run the included setup script from the repository root. It creates `.venv-leap`, downloads the official bindings, detects the SDK, and builds the CFFI extension when a precompiled one is unavailable:
 
+   **Windows (PowerShell):**
    ```powershell
    powershell -ExecutionPolicy Bypass -File bridge\setup_leap.ps1
    ```
 
-   If Gemini is not in `C:/Program Files/Ultraleap/LeapSDK`, set `LEAPSDK_INSTALL_LOCATION` before running setup.
+   **Linux / WSL / macOS (Bash or pwsh):**
+   ```bash
+   bash bridge/setup_leap.sh
+   # or with PowerShell Core:
+   pwsh -File bridge/setup_leap.ps1
+   ```
+
+   If Gemini is not in the default install location (`C:/Program Files/Ultraleap/LeapSDK` on Windows, `/usr/include` + `/usr/lib/ultraleap-hand-tracking-service` on Linux, `/Applications/Ultraleap Hand Tracking.app/Contents/LeapSDK` on macOS), set `LEAPSDK_INSTALL_LOCATION` (or `LEAPC_HEADER_OVERRIDE` / `LEAPC_LIB_OVERRIDE` on Linux) before running setup.
 
 4. **Close TouchFree** if it's running. It competes for the tracking stream.
 
 ## Run
 
+You can start and stop the Python bridge directly from the Gesturmap desktop app (**Dashboard → Sensor → Leap → Python bridge On/Off**), or run it manually from a terminal:
+
+**Windows:**
 ```powershell
 .venv-leap\Scripts\python.exe bridge\leap_bridge.py
+```
+
+**Linux / WSL / macOS:**
+```bash
+.venv-leap/bin/python bridge/leap_bridge.py
 ```
 
 Keep the terminal open. It prints `service=running device=connected` once the controller is ready, and logs each browser that connects.
