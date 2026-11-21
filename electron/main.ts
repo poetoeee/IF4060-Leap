@@ -18,6 +18,18 @@ process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
 
 let win: BrowserWindow | null = null;
 let hudWin: BrowserWindow | null = null;
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!win || win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  });
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -123,6 +135,7 @@ ipcMain.handle('window-minimize-to-tray', () => {
 });
 
 app.on('window-all-closed', () => {
+  if (!hasSingleInstanceLock) return;
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -135,7 +148,9 @@ app.on('activate', () => {
   }
 });
 
-app.whenReady().then(() => {
-  createWindow();
-  createHudWindow();
-});
+if (hasSingleInstanceLock) {
+  app.whenReady().then(() => {
+    createWindow();
+    createHudWindow();
+  });
+}

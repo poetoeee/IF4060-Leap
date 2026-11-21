@@ -5,30 +5,26 @@ The browser can't read the Leap Motion Controller directly. `leap_bridge.py` rea
 ## One-time setup (Windows)
 
 1. Install **Ultraleap Gemini 5.20** (hand tracking software). Plug in the controller and check it tracks in the Ultraleap Control Panel.
-2. Install **Python 3.8 x64**. The bindings' pre-compiled module only supports 3.8 on Windows.
-3. Clone the official bindings and install them with the bridge requirements into a Python 3.8 virtual environment:
+2. Install **64-bit Python 3.8+**.
+3. Run the included setup script from the repository root. It creates `.venv-leap`, downloads the official bindings, detects the SDK, and builds the CFFI extension when a precompiled one is unavailable:
 
    ```powershell
-   py -3.8 -m venv .venv-leap
-   .venv-leap\Scripts\activate
-   git clone https://github.com/ultraleap/leapc-python-bindings
-   pip install -r leapc-python-bindings/requirements.txt
-   pip install -e leapc-python-bindings/leapc-python-api
-   pip install -r bridge/requirements.txt
+   powershell -ExecutionPolicy Bypass -File bridge\setup_leap.ps1
    ```
 
-   If `import leap` fails because `leapc_cffi` is missing, follow the bindings README to build it (`python -m build leapc-cffi`). If Gemini is not in `C:/Program Files/Ultraleap/LeapSDK`, set `LEAPSDK_INSTALL_LOCATION`.
+   If Gemini is not in `C:/Program Files/Ultraleap/LeapSDK`, set `LEAPSDK_INSTALL_LOCATION` before running setup.
 
 4. **Close TouchFree** if it's running. It competes for the tracking stream.
 
 ## Run
 
 ```powershell
-.venv-leap\Scripts\activate
-python bridge/leap_bridge.py
+.venv-leap\Scripts\python.exe bridge\leap_bridge.py
 ```
 
 Keep the terminal open. It prints `service=running device=connected` once the controller is ready, and logs each browser that connects.
+
+If it stays at `service=running device=disconnected`, Gemini is running but LeapC sees no controller. Reconnect the USB cable directly to the computer, avoid a passive USB hub, close TouchFree and other Leap applications, and confirm the controller appears in Ultraleap Control Panel before restarting the bridge. The app intentionally shows the Leap hand skeleton only; the controller's infrared camera image is not streamed.
 
 | App shows | Meaning |
 |---|---|

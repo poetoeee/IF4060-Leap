@@ -12,8 +12,24 @@ import json
 import threading
 import time
 
-import leap
-import websockets
+try:
+    import leap
+except ImportError as exc:
+    raise SystemExit(
+        "Cannot import the Ultraleap Python bindings.\n"
+        "Activate .venv-leap and run bridge\\setup_leap.ps1 first.\n"
+        "If the SDK is installed outside C:\\Program Files\\Ultraleap\\LeapSDK, "
+        "set LEAPSDK_INSTALL_LOCATION before setup.\n"
+        f"Original error: {exc}"
+    ) from exc
+
+try:
+    import websockets
+except ImportError as exc:
+    raise SystemExit(
+        "The websockets package is missing. Run: "
+        "python -m pip install -r bridge\\requirements.txt"
+    ) from exc
 
 HOST, PORT = "127.0.0.1", 8765
 MAX_HZ = 60
@@ -64,6 +80,12 @@ class Bridge(leap.Listener):
 
     def on_device_lost_event(self, event):
         self.set_status(device="disconnected")
+
+    def on_device_failure_event(self, event):
+        self.set_status(device="disconnected")
+
+    def on_device_status_change_event(self, event):
+        self.set_status(device="connected")
 
     def on_tracking_event(self, event):
         now = time.monotonic()
@@ -120,7 +142,10 @@ def run_leap(bridge):
         try:
             with connection.open():
                 connection.set_tracking_mode(leap.TrackingMode.Desktop)
+                bridge.set_status(device="connected" if connection.get_devices() else "disconnected")
                 while True:
+                    devices = connection.get_devices()
+                    bridge.set_status(device="connected" if devices else "disconnected")
                     time.sleep(1)
         except Exception as exc:
             print("[bridge] Leap connection failed: {} - retrying in {}s".format(exc, RETRY_S))
@@ -131,7 +156,13 @@ def run_leap(bridge):
 async def main():
     bridge = Bridge(asyncio.get_running_loop())
     threading.Thread(target=run_leap, args=(bridge,), daemon=True).start()
-    await websockets.serve(bridge.handler, HOST, PORT)
+    try:
+        await websockets.serve(bridge.handler, HOST, PORT)
+    except OSError as exc:
+        raise SystemExit(
+            f"Cannot listen on ws://{HOST}:{PORT}. "
+            "Close any other Leap bridge using port 8765 and try again."
+        ) from exc
     print("[bridge] serving ws://{}:{} - Ctrl+C to stop".format(HOST, PORT))
     await asyncio.Future()
 
