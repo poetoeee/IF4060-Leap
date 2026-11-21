@@ -41,7 +41,7 @@ export function DashboardPage() {
           <TrackingStage />
           <RecentStrip />
         </div>
-        <aside className="flex w-[340px] shrink-0 flex-col gap-4 overflow-y-auto">
+        <aside className="flex w-[340px] shrink-0 flex-col gap-4 overflow-y-auto pr-1">
           <ActiveProfileCard />
           <SensorCard />
         </aside>
