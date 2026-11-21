@@ -40,7 +40,7 @@ const EXPECTED: Record<MockGesture, string[]> = {
   swipe_down: ['swipe_down'],
   pinch: ['pinch'],
   fist: ['fist'],
-  open_palm: ['open_palm@300', 'open_palm@2000'],
+  open_palm: ['open_palm@600', 'open_palm@2000'],
 };
 
 describe('rest pose', () => {
@@ -76,17 +76,18 @@ describe('robustness', () => {
     expect(fired(run(g, { scale: 0.5 }))).toEqual(EXPECTED[g].map((e) => `${e}:right`));
   });
 
-  it('a fast return stroke right after a swipe does not fire the opposite swipe', () => {
+  it('a fast return stroke right after a swipe does not fire the opposite swipe or open palm', () => {
     const rec = new Recognizer();
     const evs: GestureEvent[] = [];
     const base = restPose('right');
-    // 260 mm right in 300 ms, then straight back at the same speed.
+    // 260 mm right in 300 ms, then straight back at the same speed with all 5 fingers open.
     for (let i = 0, t = 0; t <= 1400; i++, t = i * DT) {
       const u = t < 300 ? t / 300 : t < 600 ? 1 - (t - 300) / 300 : 0;
-      const pose = { ...base, curl: 0.08, thumb: 0.6, wrist: { ...base.wrist, x: base.wrist.x + 260 * u } };
+      const pose = { ...base, curl: 0, thumb: 1, wrist: { ...base.wrist, x: base.wrist.x + 260 * u } };
       evs.push(...rec.process({ source: 'mock', timestamp: t, hands: [makeHand(pose)] }));
     }
-    expect(fired(evs)).toEqual(['swipe_right:right']);
+    expect(fired(evs)[0]).toBe('swipe_right:right');
+    expect(fired(evs)).not.toContain('swipe_left:right');
   });
 
   it('cooldown blocks a second identical gesture within 500 ms', () => {

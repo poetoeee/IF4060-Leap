@@ -44,8 +44,8 @@ export function seedProfiles(): Profile[] {
       mappings: [
         m('p-swipe-right', 'swipe_right', 'right', { type: 'key', key: 'ArrowRight' }, { label: 'Next slide' }),
         m('p-swipe-left', 'swipe_left', 'right', { type: 'key', key: 'ArrowLeft' }, { label: 'Previous slide' }),
-        // holdMs 800 so raising a hand before a swipe doesn't start the show.
-        m('p-open-palm', 'open_palm', 'right', { type: 'key', key: 'F5' }, { label: 'Start slideshow', source: 'edited', holdMs: 800 }),
+        // holdMs 1000 so raising a hand before/after a swipe doesn't start the show.
+        m('p-open-palm', 'open_palm', 'right', { type: 'key', key: 'F5' }, { label: 'Start slideshow', source: 'edited', holdMs: 1000 }),
         m('p-pinch', 'pinch', 'right', { type: 'click', button: 'left' }, { label: 'Click', enabled: false }),
         m('p-fist', 'fist', 'left', { type: 'key', key: 'Escape' }, { label: 'End slideshow' }),
       ],

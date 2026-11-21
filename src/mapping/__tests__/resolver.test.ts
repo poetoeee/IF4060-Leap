@@ -15,7 +15,7 @@ describe('resolve', () => {
   it('left Open Palm held 2 s toggles the controller, also while paused', () => {
     expect(resolve(ev({ gesture: 'open_palm', hand: 'left', holdMs: 2000 }), true, presentation)).toEqual({ kind: 'toggle', enabled: false });
     expect(resolve(ev({ gesture: 'open_palm', hand: 'left', holdMs: 2000 }), false, presentation)).toEqual({ kind: 'toggle', enabled: true });
-    expect(resolve(ev({ gesture: 'open_palm', hand: 'left', holdMs: 300 }), true, presentation)).toEqual({ kind: 'ignored' });
+    expect(resolve(ev({ gesture: 'open_palm', hand: 'left', holdMs: 600 }), true, presentation)).toEqual({ kind: 'ignored' });
   });
 
   it('does nothing while paused', () => {
@@ -30,13 +30,13 @@ describe('resolve', () => {
 
   it('matches Open Palm only at the mapping hold time', () => {
     const palm = (holdMs: number) => resolve(ev({ gesture: 'open_palm', holdMs }), true, presentation);
-    expect(palm(300)).toEqual({ kind: 'ignored' });
-    expect(palm(800)).toMatchObject({ kind: 'execute', mapping: { id: 'p-open-palm' } });
+    expect(palm(600)).toEqual({ kind: 'ignored' });
+    expect(palm(1000)).toMatchObject({ kind: 'execute', mapping: { id: 'p-open-palm' } });
     expect(palm(2000)).toEqual({ kind: 'ignored' });
   });
 
   it('reports an unmapped right Open Palm once (at the default hold)', () => {
-    expect(resolve(ev({ gesture: 'open_palm', holdMs: 300 }), true, web)).toEqual({ kind: 'unmapped' });
+    expect(resolve(ev({ gesture: 'open_palm', holdMs: 600 }), true, web)).toEqual({ kind: 'unmapped' });
     expect(resolve(ev({ gesture: 'open_palm', holdMs: 2000 }), true, web)).toEqual({ kind: 'ignored' });
   });
 

@@ -30,4 +30,4 @@ export const SENSITIVITY: Record<Sensitivity, Pick<RecognizerConfig, 'k' | 'conf
 };
 
 export const CANDIDATE_MIN = 0.4;
-export const DEFAULT_HOLDS = [300, 2000];
+export const DEFAULT_HOLDS = [600, 2000];

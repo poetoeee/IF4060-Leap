@@ -20,8 +20,9 @@ export const score = (m: number, handConf: number) =>
   Math.min(1, Math.max(0, m < 1 ? 0.6 * m : 0.6 + 0.8 * Math.min(0.5, m - 1))) * (0.5 + 0.5 * handConf);
 
 const SWIPE_WINDOW_MS = 450;
-const RETURN_BLOCK_MS = 350;
-const RETURN_SETTLE_MS = 100;
+const RETURN_BLOCK_MS = 450;
+const RETURN_SETTLE_MS = 150;
+const POST_SWIPE_GUARD_MS = 450;
 const CANDIDATE_DWELL_MS = 250;
 const HOLD_GRACE_MS = 100;
 const PINCH_HOLD_MS = 100;
@@ -42,6 +43,7 @@ interface SwipeSample {
 export class HandDetectors {
   private swipe: SwipeSample[] = [];
   private blocked: { dir: Dir; until: number } | null = null;
+  private lastSwipeAt = -Infinity;
   private motion = { active: false, best: 0, dir: 'right' as Dir, fired: false };
 
   private pinchArmed = false;
@@ -70,10 +72,10 @@ export class HandDetectors {
   }
 
   private detectSwipe(f: Features, { k, confirm }: RecognizerConfig): Hit[] {
-    // The return stroke stays blocked while the hand keeps moving fast, not just for the first 350 ms.
+    // The return stroke stays blocked while the hand keeps moving fast, not just for the first 450 ms.
     // When the block ends, drop the samples it covered so they can't complete a late opposite swipe.
     if (this.blocked) {
-      if (f.t < this.blocked.until && f.speed > 2 * f.size) this.blocked.until = Math.max(this.blocked.until, f.t + RETURN_SETTLE_MS);
+      if (f.t < this.blocked.until && f.speed > 1.5 * f.size) this.blocked.until = Math.max(this.blocked.until, f.t + RETURN_SETTLE_MS);
       if (f.t >= this.blocked.until) {
         this.blocked = null;
         this.swipe = [];
@@ -84,19 +86,55 @@ export class HandDetectors {
     this.swipe.push({ t: f.t, x: f.palm.x, y: f.palm.y, vx: f.vel.x, vy: f.vel.y, open });
     while (this.swipe.length && f.t - this.swipe[0]!.t > SWIPE_WINDOW_MS) this.swipe.shift();
 
+    // If a return stroke in the blocked direction is underway, keep pruning earlier points
+    // so residual deceleration never flips into an opposite or perpendicular swipe.
+    if (this.blocked) {
+      const opp = this.blocked.dir;
+      const movingBlocked =
+        (opp === 'left' && f.vel.x < -1.2 * f.size) ||
+        (opp === 'right' && f.vel.x > 1.2 * f.size) ||
+        (opp === 'down' && f.vel.y < -1.2 * f.size) ||
+        (opp === 'up' && f.vel.y > 1.2 * f.size);
+      if (movingBlocked) {
+        this.blocked.until = Math.max(this.blocked.until, f.t + RETURN_SETTLE_MS);
+        this.swipe = [this.swipe.at(-1)!];
+        return [];
+      }
+    }
+
     const minDisp = 1.4 * k * f.size;
     const minSpeed = 6 * k * f.size;
-    const first = this.swipe[0]!;
-    const dx = f.palm.x - first.x;
-    const dy = f.palm.y - first.y;
+
+    // Measure displacement from the true stroke origin inside the window (extremum along the current motion)
+    // so brief stationary frames before the stroke or curved approach don't dilute the displacement ratio.
+    let bestAnchor = this.swipe[0]!;
+    let bestDisp = 0;
+    for (const s of this.swipe) {
+      const d = Math.hypot(f.palm.x - s.x, f.palm.y - s.y);
+      if (d > bestDisp) {
+        bestDisp = d;
+        bestAnchor = s;
+      }
+    }
+
+    const dx = f.palm.x - bestAnchor.x;
+    const dy = f.palm.y - bestAnchor.y;
     const horizontal = Math.abs(dx) >= Math.abs(dy);
     const disp = horizontal ? Math.abs(dx) : Math.abs(dy);
     const other = horizontal ? Math.abs(dy) : Math.abs(dx);
     const dir: Dir = horizontal ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'up' : 'down';
-    const peak = Math.max(...this.swipe.map((s) => Math.abs(horizontal ? s.vx : s.vy)));
-    const openRatio = this.swipe.filter((s) => s.open).length / this.swipe.length;
+    const activeSamples = this.swipe.slice(this.swipe.indexOf(bestAnchor));
+    const peak = Math.max(...activeSamples.map((s) => Math.abs(horizontal ? s.vx : s.vy)));
+    const openRatio = activeSamples.filter((s) => s.open).length / activeSamples.length;
 
-    const valid = openRatio >= 0.8 && disp >= 2 * other && this.blocked?.dir !== dir;
+    // Require current velocity to still align with the displacement direction (not already reversing)
+    const alignedVel =
+      (dir === 'right' && f.vel.x >= 0) ||
+      (dir === 'left' && f.vel.x <= 0) ||
+      (dir === 'up' && f.vel.y >= 0) ||
+      (dir === 'down' && f.vel.y <= 0);
+
+    const valid = openRatio >= 0.8 && disp >= 1.85 * other && alignedVel && this.blocked?.dir !== dir;
     const conf = valid ? score(Math.min(disp / minDisp, peak / minSpeed), f.confidence) : 0;
 
     // Track one motion episode so a near-miss can be reported once as a candidate.
@@ -115,12 +153,21 @@ export class HandDetectors {
       hits.push({ kind: 'fire', gesture: `swipe_${dir}`, confidence: conf });
       this.swipe = [];
       this.blocked = { dir: OPPOSITE[dir], until: f.t + RETURN_BLOCK_MS };
+      this.lastSwipeAt = f.t;
+      this.holdStart = null;
+      this.holdsFired.clear();
+      this.pinchSince = null;
+      this.fistSince = null;
       this.motion.fired = true;
     }
     return hits;
   }
 
   private detectPinch(f: Features, { k, confirm }: RecognizerConfig): Hit[] {
+    if (f.t - this.lastSwipeAt < POST_SWIPE_GUARD_MS) {
+      this.pinchSince = null;
+      return this.settle('pinch');
+    }
     const on = Math.min(0.95, 0.8 * k);
     if (f.pinch < 0.45) this.pinchArmed = true;
     // A forming fist also brings thumb and index tips together; a pinch keeps the index reaching out
@@ -143,6 +190,10 @@ export class HandDetectors {
   }
 
   private detectFist(f: Features, { k, confirm }: RecognizerConfig): Hit[] {
+    if (f.t - this.lastSwipeAt < POST_SWIPE_GUARD_MS) {
+      this.fistSince = null;
+      return this.settle('fist');
+    }
     const on = Math.min(0.95, 0.85 * k);
     if (f.grab < 0.5) this.fistArmed = true;
     if (!this.fistArmed) return [];
@@ -160,6 +211,12 @@ export class HandDetectors {
   }
 
   private detectPalm(f: Features, { k, confirm, holdThresholds }: RecognizerConfig): Hit[] {
+    // Do not start or accumulate Open Palm hold during a post-swipe return stroke
+    if (f.t - this.lastSwipeAt < POST_SWIPE_GUARD_MS || (this.blocked && f.t < this.blocked.until)) {
+      this.holdStart = null;
+      this.holdsFired.clear();
+      return [];
+    }
     const m = Math.min(under(f.grab, 0.15 / k), under(f.speed, (1.5 * f.size) / k));
     const ok = f.extendedCount === 5 && f.pinch < 0.5 && m >= 1;
     if (ok) {

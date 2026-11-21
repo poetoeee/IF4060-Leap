@@ -118,7 +118,7 @@ describe('source tagging', () => {
 
 describe('holdThresholds', () => {
   it('includes default, pause and mapping holds', () => {
-    expect(holdThresholds(presentation)).toEqual([300, 800, 2000]);
-    expect(holdThresholds(web)).toEqual([300, 2000]);
+    expect(holdThresholds(presentation)).toEqual([600, 1000, 2000]);
+    expect(holdThresholds(web)).toEqual([600, 2000]);
   });
 });

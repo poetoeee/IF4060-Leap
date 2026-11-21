@@ -6,7 +6,7 @@ export const HANDS: Hand[] = ['right', 'left', 'any'];
 export const MAX_COMBO_KEYS = 3;
 /** Left Open Palm held this long toggles the controller (Universal Controller rule). */
 export const PAUSE_HOLD_MS = 2000;
-export const DEFAULT_HOLD_MS = 300;
+export const DEFAULT_HOLD_MS = 600;
 
 /** `any` overlaps both hands. */
 export const handsOverlap = (a: Hand, b: Hand) => a === b || a === 'any' || b === 'any';
