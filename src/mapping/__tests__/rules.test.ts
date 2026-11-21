@@ -5,6 +5,7 @@ import {
   freeGestures,
   handBlocks,
   holdThresholds,
+  repeatGestures,
   reverted,
   tagSource,
   validateAction,
@@ -120,5 +121,24 @@ describe('holdThresholds', () => {
   it('includes default, pause and mapping holds', () => {
     expect(holdThresholds(presentation)).toEqual([600, 1000, 2000]);
     expect(holdThresholds(web)).toEqual([600, 2000]);
+  });
+});
+
+describe('repeatGestures', () => {
+  const withRepeat = (p: Profile, enabled = true): Profile => ({
+    ...p,
+    mappings: p.mappings.map((m) => (m.action.type === 'scroll' && m.gesture === 'swipe_down' ? { ...m, enabled, action: { ...m.action, repeat: true } } : m)),
+  });
+
+  it('lists only enabled scroll mappings with repeat on', () => {
+    expect(repeatGestures(web)).toEqual([]);
+    expect(repeatGestures(withRepeat(web))).toEqual(['swipe_down']);
+    expect(repeatGestures(withRepeat(web, false))).toEqual([]);
+    expect(repeatGestures(undefined)).toEqual([]);
+  });
+
+  it('accepts up to 20 scroll lines', () => {
+    expect(validateAction({ type: 'scroll', direction: 'up', amount: 20 })).toBeNull();
+    expect(validateAction({ type: 'scroll', direction: 'up', amount: 21 })).not.toBeNull();
   });
 });

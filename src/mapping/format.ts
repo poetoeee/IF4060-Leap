@@ -59,7 +59,7 @@ export function actionSummary(a: Action): string {
     case 'click':
       return a.button === 'left' ? 'Click' : 'Right click';
     case 'scroll':
-      return `Scroll ${a.direction} · ${a.amount} lines`;
+      return `Scroll ${a.direction} · ${a.amount} lines${a.repeat ? ' · hold to repeat' : ''}`;
   }
 }
 

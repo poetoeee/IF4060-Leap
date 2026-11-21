@@ -4,6 +4,7 @@ import type { Action, GestureId, Hand, Mapping, Profile } from './types';
 
 export const HANDS: Hand[] = ['right', 'left', 'any'];
 export const MAX_COMBO_KEYS = 3;
+export const MAX_SCROLL_LINES = 20;
 /** Left Open Palm held this long toggles the controller (Universal Controller rule). */
 export const PAUSE_HOLD_MS = 2000;
 export const DEFAULT_HOLD_MS = 600;
@@ -44,7 +45,7 @@ export function validateAction(a: Action): string | null {
     case 'click':
       return null;
     case 'scroll':
-      return a.amount >= 1 && a.amount <= 20 ? null : 'Scroll 1–20 lines.';
+      return a.amount >= 1 && a.amount <= MAX_SCROLL_LINES ? null : `Scroll 1–${MAX_SCROLL_LINES} lines.`;
   }
 }
 
@@ -85,4 +86,10 @@ export function reverted(template: Profile, m: Mapping): Mapping {
 export function holdThresholds(p: Profile | undefined): number[] {
   const own = p?.mappings.filter((m) => m.gesture === 'open_palm').map((m) => m.holdMs ?? DEFAULT_HOLD_MS) ?? [];
   return [...new Set([DEFAULT_HOLD_MS, PAUSE_HOLD_MS, ...own])].sort((a, b) => a - b);
+}
+
+/** Swipes the recognizer should keep repeating while held: enabled scroll mappings with repeat on. */
+export function repeatGestures(p: Profile | undefined): GestureId[] {
+  const own = p?.mappings.filter((m) => m.enabled && m.action.type === 'scroll' && m.action.repeat).map((m) => m.gesture) ?? [];
+  return [...new Set(own)];
 }

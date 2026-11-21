@@ -17,7 +17,7 @@ export type Action =
   | { type: 'key'; key: string }
   | { type: 'combo'; keys: string[] }
   | { type: 'click'; button: 'left' | 'right' }
-  | { type: 'scroll'; direction: 'up' | 'down'; amount: number };
+  | { type: 'scroll'; direction: 'up' | 'down'; amount: number; repeat?: boolean };
 
 export interface Mapping {
   id: string;

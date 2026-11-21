@@ -4,7 +4,7 @@ import { CANDIDATE_MIN, type RecognizerConfig } from './types';
 
 /** Detector output before cooldowns. `fire` still has to pass the engine's cooldown/refractory checks. */
 export interface Hit {
-  kind: 'fire' | 'candidate' | 'hold';
+  kind: 'fire' | 'candidate' | 'hold' | 'repeat';
   gesture: GestureId;
   confidence: number;
   holdMs?: number;
@@ -26,9 +26,17 @@ const POST_SWIPE_GUARD_MS = 450;
 const CANDIDATE_DWELL_MS = 250;
 const HOLD_GRACE_MS = 100;
 const PINCH_HOLD_MS = 100;
+/** Palm speed (handSize/s) below which the hand counts as held still. */
+const STILL_SPEED = 1.5;
+/** A repeatable swipe must come to rest this soon after firing, otherwise it was a return stroke. */
+const REPEAT_SETTLE_MS = 350;
+const REPEAT_DELAY_MS = 400;
+const REPEAT_INTERVAL_MS = 120;
 
 type Dir = 'left' | 'right' | 'up' | 'down';
 const OPPOSITE: Record<Dir, Dir> = { left: 'right', right: 'left', up: 'down', down: 'up' };
+
+const isOpen = (f: Features) => f.grab < 0.35 && f.extendedCount >= 3;
 
 interface SwipeSample {
   t: number;
@@ -45,6 +53,7 @@ export class HandDetectors {
   private blocked: { dir: Dir; until: number } | null = null;
   private lastSwipeAt = -Infinity;
   private motion = { active: false, best: 0, dir: 'right' as Dir, fired: false };
+  private sustain: { gesture: GestureId; firedAt: number; stillSince: number | null; lastStill: number; nextAt: number } | null = null;
 
   private pinchArmed = false;
   private pinchSince: number | null = null;
@@ -68,10 +77,10 @@ export class HandDetectors {
   }
 
   update(f: Features, cfg: RecognizerConfig): Hit[] {
-    return [...this.detectSwipe(f, cfg), ...this.detectPinch(f, cfg), ...this.detectFist(f, cfg), ...this.detectPalm(f, cfg)];
+    return [...this.detectSwipe(f, cfg), ...this.detectRepeat(f), ...this.detectPinch(f, cfg), ...this.detectFist(f, cfg), ...this.detectPalm(f, cfg)];
   }
 
-  private detectSwipe(f: Features, { k, confirm }: RecognizerConfig): Hit[] {
+  private detectSwipe(f: Features, { k, confirm, repeatGestures }: RecognizerConfig): Hit[] {
     // The return stroke stays blocked while the hand keeps moving fast, not just for the first 450 ms.
     // When the block ends, drop the samples it covered so they can't complete a late opposite swipe.
     if (this.blocked) {
@@ -82,8 +91,7 @@ export class HandDetectors {
       }
     }
 
-    const open = f.grab < 0.35 && f.extendedCount >= 3;
-    this.swipe.push({ t: f.t, x: f.palm.x, y: f.palm.y, vx: f.vel.x, vy: f.vel.y, open });
+    this.swipe.push({ t: f.t, x: f.palm.x, y: f.palm.y, vx: f.vel.x, vy: f.vel.y, open: isOpen(f) });
     while (this.swipe.length && f.t - this.swipe[0]!.t > SWIPE_WINDOW_MS) this.swipe.shift();
 
     // If a return stroke in the blocked direction is underway, keep pruning earlier points
@@ -150,7 +158,9 @@ export class HandDetectors {
     }
 
     if (valid && conf >= confirm) {
-      hits.push({ kind: 'fire', gesture: `swipe_${dir}`, confidence: conf });
+      const gesture: GestureId = `swipe_${dir}`;
+      hits.push({ kind: 'fire', gesture, confidence: conf });
+      this.sustain = repeatGestures.includes(gesture) ? { gesture, firedAt: f.t, stillSince: null, lastStill: f.t, nextAt: 0 } : null;
       this.swipe = [];
       this.blocked = { dir: OPPOSITE[dir], until: f.t + RETURN_BLOCK_MS };
       this.lastSwipeAt = f.t;
@@ -161,6 +171,24 @@ export class HandDetectors {
       this.motion.fired = true;
     }
     return hits;
+  }
+
+  /** After a repeatable swipe, an open hand held still emits `repeat` until it moves, closes or is lost. */
+  private detectRepeat(f: Features): Hit[] {
+    const s = this.sustain;
+    if (!s) return [];
+    const still = f.speed < STILL_SPEED * f.size;
+    const ended = s.stillSince === null ? f.t - s.firedAt > REPEAT_SETTLE_MS : f.t - s.lastStill > HOLD_GRACE_MS;
+    if (!isOpen(f) || (!still && ended)) {
+      this.sustain = null;
+      return [];
+    }
+    if (!still) return [];
+    s.stillSince ??= f.t;
+    s.lastStill = f.t;
+    if (f.t - s.stillSince < REPEAT_DELAY_MS || f.t < s.nextAt) return [];
+    s.nextAt = f.t + REPEAT_INTERVAL_MS;
+    return [{ kind: 'repeat', gesture: s.gesture, confidence: f.confidence }];
   }
 
   private detectPinch(f: Features, { k, confirm }: RecognizerConfig): Hit[] {
@@ -211,8 +239,8 @@ export class HandDetectors {
   }
 
   private detectPalm(f: Features, { k, confirm, holdThresholds }: RecognizerConfig): Hit[] {
-    // Do not start or accumulate Open Palm hold during a post-swipe return stroke
-    if (f.t - this.lastSwipeAt < POST_SWIPE_GUARD_MS || (this.blocked && f.t < this.blocked.until)) {
+    // No Open Palm hold during a post-swipe return stroke or while a swipe is held to repeat.
+    if (this.sustain || f.t - this.lastSwipeAt < POST_SWIPE_GUARD_MS || (this.blocked && f.t < this.blocked.until)) {
       this.holdStart = null;
       this.holdsFired.clear();
       return [];

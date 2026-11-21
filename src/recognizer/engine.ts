@@ -1,4 +1,4 @@
-import type { Sensitivity } from '@/mapping/types';
+import type { GestureId, Sensitivity } from '@/mapping/types';
 import type { TrackingFrame } from '@/tracking/types';
 import { HandDetectors } from './detectors';
 import { computeFeatures, poseOf, type Features, type Pose, type Sample } from './features';
@@ -29,7 +29,7 @@ export class Recognizer {
   private lastAny = -Infinity;
 
   constructor(sensitivity: Sensitivity = 'balanced', holdThresholds = DEFAULT_HOLDS) {
-    this.cfg = { ...SENSITIVITY[sensitivity], holdThresholds };
+    this.cfg = { ...SENSITIVITY[sensitivity], holdThresholds, repeatGestures: [] };
   }
 
   setSensitivity(s: Sensitivity) {
@@ -38,6 +38,10 @@ export class Recognizer {
 
   setHoldThresholds(ms: number[]) {
     this.cfg = { ...this.cfg, holdThresholds: [...new Set(ms)].sort((a, b) => a - b) };
+  }
+
+  setRepeatGestures(gestures: GestureId[]) {
+    this.cfg = { ...this.cfg, repeatGestures: gestures };
   }
 
   reset() {

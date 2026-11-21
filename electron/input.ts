@@ -73,6 +73,15 @@ const MODIFIER_KEYS: Key[] = [
   Key.RightSuper,
 ];
 
+const MAX_SCROLL_LINES = 20;
+/** WHEEL_DELTA (120) is one notch, which Windows scrolls 3 lines by default. */
+const WIN_WHEEL_DELTA_PER_LINE = 40;
+
+/** libnut passes the amount through unscaled; on Windows that is raw wheel delta, not lines. */
+function wheelSteps(lines: number): number {
+  return process.platform === 'win32' ? lines * WIN_WHEEL_DELTA_PER_LINE : lines;
+}
+
 function isModifierKey(k: Key): boolean {
   return MODIFIER_KEYS.includes(k);
 }
@@ -128,7 +137,7 @@ export async function executeNativeAction(action: NativeAction): Promise<void> {
       }
 
       case 'scroll': {
-        const amount = Math.max(1, Math.min(20, action.amount ?? 3));
+        const amount = wheelSteps(Math.max(1, Math.min(MAX_SCROLL_LINES, action.amount ?? 3)));
         if (action.direction === 'up') {
           await mouse.scrollUp(amount);
         } else {

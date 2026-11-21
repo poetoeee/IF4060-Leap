@@ -3,8 +3,11 @@ import type { GestureId, Sensitivity } from '@/mapping/types';
 export type Side = 'left' | 'right';
 
 export interface GestureEvent {
-  /** `gesture` fired · `candidate` almost (HUD "Hold steady…") · `hold` Open Palm hold progress. */
-  kind: 'gesture' | 'candidate' | 'hold';
+  /**
+   * `gesture` fired · `candidate` almost (HUD "Hold steady…") · `hold` Open Palm hold progress ·
+   * `repeat` hand held still after a swipe listed in `repeatGestures`.
+   */
+  kind: 'gesture' | 'candidate' | 'hold' | 'repeat';
   gesture: GestureId;
   hand: Side;
   confidence: number;
@@ -21,6 +24,8 @@ export interface RecognizerConfig {
   confirm: number;
   /** Open Palm hold thresholds (ms) that emit a `gesture` event. */
   holdThresholds: number[];
+  /** Swipes that keep emitting `repeat` while the hand is held still afterwards. */
+  repeatGestures: GestureId[];
 }
 
 export const SENSITIVITY: Record<Sensitivity, Pick<RecognizerConfig, 'k' | 'confirm'>> = {

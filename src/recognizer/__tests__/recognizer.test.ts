@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Sensitivity } from '@/mapping/types';
+import type { GestureId, Sensitivity } from '@/mapping/types';
 import { makeHand, type Pose } from '@/tracking/sources/mockHand';
 import { MOCK_KEYS, poseAt, restPose, scriptDuration, type MockGesture, type Side } from '@/tracking/sources/mockScripts';
 import type { HandState } from '@/tracking/types';
@@ -117,6 +117,43 @@ describe('robustness', () => {
       t += DT;
     }
     expect(fired(evs)).toEqual(['open_palm@300:right', 'open_palm@800:right', 'open_palm@2000:right']);
+  });
+});
+
+describe('hold-to-repeat', () => {
+  const STROKE_END_MS = 430; // swipe_up script: 150 ms wind-up + 280 ms stroke
+
+  /** Swipe up, then either hold the open hand still at the top for `holdMs` or follow the script's slow return. */
+  function swipeUp(repeatGestures: GestureId[], holdMs: number | null) {
+    const rec = new Recognizer();
+    rec.setRepeatGestures(repeatGestures);
+    const evs: GestureEvent[] = [];
+    let t = 0;
+    const feed = (pose: Pose) => {
+      evs.push(...rec.process({ source: 'mock', timestamp: t, hands: [makeHand(pose)] }));
+      t += DT;
+    };
+    for (let i = 0; i < 1000; i += DT) feed(restPose('right'));
+    const end = holdMs === null ? scriptDuration('swipe_up') : STROKE_END_MS;
+    for (let s = 0; s <= end; s += DT) feed(poseAt('swipe_up', 'right', s));
+    for (let i = 0; i < (holdMs ?? 0); i += DT) feed(poseAt('swipe_up', 'right', STROKE_END_MS));
+    return evs;
+  }
+  const repeats = (evs: GestureEvent[]) => evs.filter((e) => e.kind === 'repeat');
+
+  it('repeats a held swipe every ~120 ms after a 400 ms delay, without firing Open Palm', () => {
+    const evs = swipeUp(['swipe_up'], 1500);
+    expect(fired(evs)).toEqual(['swipe_up:right']);
+    expect(repeats(evs).length).toBeGreaterThanOrEqual(7);
+    expect(repeats(evs).every((e) => e.gesture === 'swipe_up' && e.hand === 'right')).toBe(true);
+  });
+
+  it('does not repeat swipes that are not configured', () => {
+    expect(repeats(swipeUp([], 1500))).toEqual([]);
+  });
+
+  it('does not repeat when the hand moves on after the swipe', () => {
+    expect(repeats(swipeUp(['swipe_up'], null))).toEqual([]);
   });
 });
 

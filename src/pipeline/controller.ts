@@ -83,6 +83,14 @@ function onEvent(e: GestureEvent, executor: ActionExecutor) {
     }
     return;
   }
+  if (e.kind === 'repeat') {
+    const r = resolve(e, controllerEnabled, getActiveProfile());
+    if (r.kind !== 'execute' || r.mapping.action.type !== 'scroll' || !r.mapping.action.repeat) return;
+    executor.execute(r.mapping.action);
+    const { hud } = useController.getState();
+    if (hud) showHud(hud);
+    return;
+  }
   if (e.kind === 'candidate') {
     if (controllerEnabled) showHud({ state: 'candidate', gesture: e.gesture, confidence: e.confidence });
     return;

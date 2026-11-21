@@ -6,9 +6,10 @@ import { Icon } from '@/components/Icon';
 import { KeyCaps } from '@/components/KeyCap';
 import { Modal } from '@/components/Modal';
 import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl';
+import { Toggle } from '@/components/Toggle';
 import { actionCaps, actionSummary } from '@/mapping/format';
 import { GESTURE, GESTURES, HAND_LABEL } from '@/mapping/gestures';
-import { canRevert, freeGestures, handBlocks, HANDS, templateCounterpart, validateMapping } from '@/mapping/rules';
+import { canRevert, freeGestures, handBlocks, HANDS, MAX_SCROLL_LINES, templateCounterpart, validateMapping } from '@/mapping/rules';
 import { TEMPLATE } from '@/mapping/seed';
 import type { Action, GestureId, Hand, Mapping, Profile } from '@/mapping/types';
 import { KeyRecorder } from './KeyRecorder';
@@ -54,6 +55,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
   const [button, setButton] = useState<'left' | 'right'>(init?.type === 'click' ? init.button : 'left');
   const [direction, setDirection] = useState<'up' | 'down'>(init?.type === 'scroll' ? init.direction : 'up');
   const [amount, setAmount] = useState(init?.type === 'scroll' ? init.amount : 3);
+  const [repeat, setRepeat] = useState(init?.type === 'scroll' && !!init.repeat);
   const [label, setLabel] = useState(editing?.label ?? '');
   const [error, setError] = useState<string | null>(null);
 
@@ -64,7 +66,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
         ? { type, keys: combo }
         : type === 'click'
           ? { type, button }
-          : { type, direction, amount };
+          : { type, direction, amount, ...(repeat && { repeat }) };
 
   const draft: Mapping = {
     id: editing?.id ?? 'draft',
@@ -243,7 +245,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
                   <input
                     type="range"
                     min={1}
-                    max={10}
+                    max={MAX_SCROLL_LINES}
                     value={amount}
                     onChange={(e) => setAmount(Number(e.target.value))}
                     className="flex-1 accent-accent"
@@ -252,6 +254,13 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
                   <span className="w-16 text-right font-mono text-key">{amount} lines</span>
                 </div>
               </Field>
+              <div className="flex items-center gap-3">
+                <div className="flex flex-1 flex-col gap-0.5">
+                  <span className="text-label">Keep scrolling while hand is held up</span>
+                  <span className="text-caption text-fg-muted">Like holding the scroll wheel</span>
+                </div>
+                <Toggle label="Keep scrolling while hand is held up" checked={repeat} onChange={setRepeat} />
+              </div>
             </>
           )}
 
