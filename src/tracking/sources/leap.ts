@@ -5,7 +5,7 @@ export const LEAP_BRIDGE_URL = 'ws://127.0.0.1:8765';
 const RETRY_MS = 2000;
 
 const MSG = {
-  bridge: 'Leap bridge not running — start bridge/leap_bridge.py',
+  bridge: 'Leap bridge not running — turn on Python bridge in Sensor card',
   service: 'Ultraleap Tracking Service not running — start Gemini',
   device: 'Leap Motion not connected — plug it in',
   waiting: 'Bridge connected — waiting for the sensor…',

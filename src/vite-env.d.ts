@@ -9,6 +9,14 @@ interface ElectronActionPayload {
   amount?: number;
 }
 
+type BridgeProcessState = 'stopped' | 'starting' | 'running' | 'error';
+
+interface BridgeStatusPayload {
+  state: BridgeProcessState;
+  detail?: string;
+  pid?: number;
+}
+
 interface Window {
   electronAPI?: {
     isElectron: boolean;
@@ -16,5 +24,9 @@ interface Window {
     minimizeToTray?: () => Promise<void>;
     updateHud?: (hud: unknown) => Promise<{ ok: boolean }>;
     onHudData?: (callback: (data: unknown) => void) => () => void;
+    startBridge?: () => Promise<BridgeStatusPayload>;
+    stopBridge?: () => Promise<BridgeStatusPayload>;
+    getBridgeStatus?: () => Promise<BridgeStatusPayload>;
+    onBridgeStatus?: (callback: (status: BridgeStatusPayload) => void) => () => void;
   };
 }

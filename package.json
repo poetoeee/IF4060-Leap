@@ -59,6 +59,32 @@
       "public/**",
       "!scripts/**"
     ],
+    "extraResources": [
+      {
+        "from": "bridge",
+        "to": "bridge",
+        "filter": [
+          "**/*",
+          "!__pycache__/**"
+        ]
+      },
+      {
+        "from": "leapc-python-bindings/leapc-python-api/src",
+        "to": "leapc-python-bindings/leapc-python-api/src",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**"
+        ]
+      },
+      {
+        "from": "leapc-python-bindings/leapc-cffi/src",
+        "to": "leapc-python-bindings/leapc-cffi/src",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**"
+        ]
+      }
+    ],
     "asarUnpack": [
       "**/node_modules/@nut-tree-fork/**"
     ],

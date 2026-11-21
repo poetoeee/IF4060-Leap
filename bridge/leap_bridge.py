@@ -9,8 +9,20 @@ Messages (JSON):
 """
 import asyncio
 import json
+import os
+import sys
 import threading
 import time
+
+# Auto-discover local leapc-python-bindings if running from repo or adjacent build directory
+_HERE = os.path.abspath(os.path.dirname(__file__))
+for _base in (_HERE, os.path.dirname(_HERE), os.path.dirname(os.path.dirname(_HERE)), os.path.dirname(os.path.dirname(os.path.dirname(_HERE)))):
+    for _sub in (
+        os.path.join(_base, "leapc-python-bindings", "leapc-python-api", "src"),
+        os.path.join(_base, "leapc-python-bindings", "leapc-cffi", "src"),
+    ):
+        if os.path.isdir(_sub) and _sub not in sys.path:
+            sys.path.insert(0, _sub)
 
 try:
     import leap

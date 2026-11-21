@@ -1,7 +1,10 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron';
+import { spawn, type ChildProcess } from 'node:child_process';
+import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { executeNativeAction, type NativeAction } from './input';
+import { executeNativeAction, releaseAllModifiers, type NativeAction } from './input';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,6 +109,254 @@ function createHudWindow() {
 }
 
 // IPC Handlers
+export type BridgeProcessState = 'stopped' | 'starting' | 'running' | 'error';
+
+export interface BridgeStatusPayload {
+  state: BridgeProcessState;
+  detail?: string;
+  pid?: number;
+}
+
+let bridgeProc: ChildProcess | null = null;
+let bridgeStatus: BridgeStatusPayload = { state: 'stopped' };
+
+function broadcastBridgeStatus(next: BridgeStatusPayload) {
+  bridgeStatus = next;
+  if (win && !win.isDestroyed()) {
+    win.webContents.send('bridge-status', bridgeStatus);
+  }
+}
+
+function isBridgePortOpen(port = 8765, host = '127.0.0.1'): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    const done = (open: boolean) => {
+      socket.destroy();
+      resolve(open);
+    };
+    socket.setTimeout(400);
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+    socket.connect(port, host);
+  });
+}
+
+const SOURCE_REPO_ROOT = process.cwd();
+
+function resolveBridgeScript(): { script: string; rootDir: string } | null {
+  const exeDir = path.dirname(app.getPath('exe'));
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR ?? '';
+  const candidates = [
+    process.env.APP_ROOT ? path.join(process.env.APP_ROOT, 'bridge', 'leap_bridge.py') : '',
+    process.resourcesPath ? path.join(process.resourcesPath, 'bridge', 'leap_bridge.py') : '',
+    portableDir ? path.join(portableDir, 'bridge', 'leap_bridge.py') : '',
+    portableDir ? path.join(portableDir, '..', 'bridge', 'leap_bridge.py') : '',
+    path.join(exeDir, 'bridge', 'leap_bridge.py'),
+    path.join(exeDir, '..', '..', 'bridge', 'leap_bridge.py'),
+    path.join(process.cwd(), 'bridge', 'leap_bridge.py'),
+    path.join(SOURCE_REPO_ROOT, 'bridge', 'leap_bridge.py'),
+  ].filter(Boolean);
+
+  for (const script of candidates) {
+    if (!script.includes('app.asar') && fs.existsSync(script)) {
+      return { script, rootDir: path.dirname(path.dirname(script)) };
+    }
+  }
+  return null;
+}
+
+function collectParentDirs(startDir: string, depth = 4): string[] {
+  const dirs: string[] = [];
+  let cur = startDir;
+  for (let i = 0; i < depth && cur; i++) {
+    dirs.push(cur);
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+  return dirs;
+}
+
+function resolvePythonEnv(rootDir: string): { pythonExe: string; pythonPathEntries: string[] } {
+  const isWin = process.platform === 'win32';
+  const exeDir = path.dirname(app.getPath('exe'));
+  const portableDir = process.env.PORTABLE_EXECUTABLE_DIR ?? '';
+
+  const baseCandidates = [
+    rootDir,
+    process.env.APP_ROOT ?? '',
+    process.cwd(),
+    portableDir,
+    exeDir,
+    process.resourcesPath ?? '',
+    SOURCE_REPO_ROOT,
+  ].filter(Boolean);
+
+  const searchRoots = [...new Set(baseCandidates.flatMap((d) => collectParentDirs(d, 4)))];
+
+  const pythonPathEntries: string[] = [];
+  for (const r of searchRoots) {
+    const apiSrc = path.join(r, 'leapc-python-bindings', 'leapc-python-api', 'src');
+    const cffiSrc = path.join(r, 'leapc-python-bindings', 'leapc-cffi', 'src');
+    if (fs.existsSync(apiSrc) && !pythonPathEntries.includes(apiSrc)) pythonPathEntries.push(apiSrc);
+    if (fs.existsSync(cffiSrc) && !pythonPathEntries.includes(cffiSrc)) pythonPathEntries.push(cffiSrc);
+  }
+
+  for (const r of searchRoots) {
+    const venvPy = isWin
+      ? path.join(r, '.venv-leap', 'Scripts', 'python.exe')
+      : path.join(r, '.venv-leap', 'bin', 'python');
+    if (fs.existsSync(venvPy)) {
+      return { pythonExe: venvPy, pythonPathEntries };
+    }
+  }
+
+  return { pythonExe: isWin ? 'python' : 'python3', pythonPathEntries };
+}
+
+async function startBridgeProcess(): Promise<BridgeStatusPayload> {
+  if (bridgeProc && bridgeProc.exitCode === null && !bridgeProc.killed) {
+    return bridgeStatus;
+  }
+
+  if (await isBridgePortOpen()) {
+    broadcastBridgeStatus({
+      state: 'running',
+      detail: 'Bridge active on ws://127.0.0.1:8765',
+    });
+    return bridgeStatus;
+  }
+
+  const resolved = resolveBridgeScript();
+  if (!resolved) {
+    broadcastBridgeStatus({
+      state: 'error',
+      detail: 'bridge/leap_bridge.py not found.',
+    });
+    return bridgeStatus;
+  }
+
+  const { pythonExe, pythonPathEntries } = resolvePythonEnv(resolved.rootDir);
+  broadcastBridgeStatus({
+    state: 'starting',
+    detail: `Starting bridge (${path.basename(pythonExe)})…`,
+  });
+
+  try {
+    const existingPyPath = process.env.PYTHONPATH ? [process.env.PYTHONPATH] : [];
+    const combinedPyPath = [...pythonPathEntries, ...existingPyPath].join(path.delimiter);
+    const child = spawn(pythonExe, ['-u', resolved.script], {
+      cwd: resolved.rootDir,
+      env: {
+        ...process.env,
+        ...(combinedPyPath ? { PYTHONPATH: combinedPyPath } : {}),
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    bridgeProc = child;
+
+    let stderrBuf = '';
+
+    child.stdout?.on('data', (chunk: Buffer) => {
+      const text = chunk.toString().trim();
+      if (!text) return;
+      if (text.includes('serving ws://') || text.includes('[bridge]')) {
+        broadcastBridgeStatus({
+          state: 'running',
+          pid: child.pid,
+          detail: text.split(/\r?\n/).pop() ?? 'Bridge running',
+        });
+      }
+    });
+
+    child.stderr?.on('data', (chunk: Buffer) => {
+      stderrBuf += chunk.toString();
+    });
+
+    child.on('error', (err) => {
+      if (bridgeProc === child) bridgeProc = null;
+      broadcastBridgeStatus({
+        state: 'error',
+        detail: `Failed to start Python bridge: ${err.message}`,
+      });
+    });
+
+    child.on('exit', (code, signal) => {
+      const wasStartingOrRunning = bridgeStatus.state === 'starting' || bridgeStatus.state === 'running';
+      if (bridgeProc === child) bridgeProc = null;
+      if (code === 0 || signal === 'SIGTERM' || signal === 'SIGINT' || !wasStartingOrRunning) {
+        broadcastBridgeStatus({ state: 'stopped', detail: 'Bridge stopped' });
+      } else {
+        const lastLine =
+          stderrBuf
+            .trim()
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .slice(-2)
+            .join(' ') || `Exited with code ${code ?? 'unknown'}`;
+        broadcastBridgeStatus({
+          state: 'error',
+          detail: lastLine,
+        });
+      }
+    });
+
+    // Wait briefly to verify process did not immediately crash and is listening
+    await new Promise((r) => setTimeout(r, 600));
+    if (bridgeProc === child && child.exitCode === null) {
+      broadcastBridgeStatus({
+        state: 'running',
+        pid: child.pid,
+        detail: 'Running on ws://127.0.0.1:8765',
+      });
+    }
+  } catch (err) {
+    broadcastBridgeStatus({
+      state: 'error',
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  return bridgeStatus;
+}
+
+async function stopBridgeProcess(): Promise<BridgeStatusPayload> {
+  const child = bridgeProc;
+  bridgeProc = null;
+  if (child && child.exitCode === null && !child.killed) {
+    try {
+      if (process.platform === 'win32' && child.pid) {
+        spawn('taskkill', ['/pid', String(child.pid), '/f', '/t'], { windowsHide: true });
+      } else {
+        child.kill('SIGTERM');
+      }
+    } catch {
+      // ignore kill errors
+    }
+  }
+  broadcastBridgeStatus({ state: 'stopped', detail: 'Bridge stopped' });
+  return bridgeStatus;
+}
+
+ipcMain.handle('bridge-status', async () => {
+  if (!bridgeProc && bridgeStatus.state === 'stopped') {
+    if (await isBridgePortOpen()) {
+      bridgeStatus = { state: 'running', detail: 'External bridge active on ws://127.0.0.1:8765' };
+    }
+  }
+  return bridgeStatus;
+});
+
+ipcMain.handle('bridge-start', async () => {
+  return startBridgeProcess();
+});
+
+ipcMain.handle('bridge-stop', async () => {
+  return stopBridgeProcess();
+});
+
 ipcMain.handle('execute-action', async (_event, action: NativeAction) => {
   await executeNativeAction(action);
   return { ok: true };
@@ -134,8 +385,15 @@ ipcMain.handle('window-minimize-to-tray', () => {
   win?.minimize();
 });
 
+app.on('before-quit', () => {
+  void stopBridgeProcess();
+  void releaseAllModifiers();
+});
+
 app.on('window-all-closed', () => {
   if (!hasSingleInstanceLock) return;
+  void stopBridgeProcess();
+  void releaseAllModifiers();
   if (process.platform !== 'darwin') {
     app.quit();
   }
