@@ -33,12 +33,19 @@ export class WebActionExecutor implements ActionExecutor {
       shiftKey: keys.includes('Shift'),
       metaKey: keys.includes('Meta'),
     };
-    const send = (type: 'keydown' | 'keyup', key: string) =>
-      window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true, ...flags }));
+    const send = (type: 'keydown' | 'keyup', key: string, activeFlags = flags) =>
+      window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true, ...activeFlags }));
     // Modifiers first, main key last — like a person pressing a shortcut.
     const ordered = [...keys.filter(isModifier), ...keys.filter((k) => !isModifier(k))];
-    ordered.forEach((k) => send('keydown', k));
-    [...ordered].reverse().forEach((k) => send('keyup', k));
+    try {
+      ordered.forEach((k) => send('keydown', k));
+    } finally {
+      const clearFlags = { ctrlKey: false, altKey: false, shiftKey: false, metaKey: false };
+      [...ordered].reverse().forEach((k) => send('keyup', k, clearFlags));
+      ['Control', 'Alt', 'Shift', 'Meta'].forEach((mod) => {
+        if (!ordered.includes(mod)) send('keyup', mod, clearFlags);
+      });
+    }
   }
 
   private click(button: 'left' | 'right') {
