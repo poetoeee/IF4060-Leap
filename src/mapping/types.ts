@@ -40,12 +40,15 @@ export interface Profile {
 
 export type Sensitivity = 'relaxed' | 'balanced' | 'strict';
 
+export type HudDetail = 'simple' | 'detailed';
+
 export interface Settings {
   controllerEnabled: boolean;
   activeProfileId: string;
   sensitivity: Sensitivity;
   trackingSource: SourceId;
   cameraPreview: boolean;
+  hudDetail: HudDetail;
   userName: string;
   leapSdkPath?: string;
 }

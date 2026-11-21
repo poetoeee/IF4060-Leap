@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Badge, type BadgeTone } from '@/components/Badge';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { Toggle } from '@/components/Toggle';
-import type { Sensitivity } from '@/mapping/types';
+import type { HudDetail, Sensitivity } from '@/mapping/types';
 import { useAppStore } from '@/store';
 import { SOURCE_META, SOURCE_OPTIONS } from '@/tracking/labels';
 import { restartSource } from '@/tracking/manager';
@@ -29,6 +29,11 @@ const SENSITIVITY: { value: Sensitivity; label: string }[] = [
   { value: 'relaxed', label: 'Relaxed' },
   { value: 'balanced', label: 'Balanced' },
   { value: 'strict', label: 'Strict' },
+];
+
+const HUD_DETAIL: { value: HudDetail; label: string }[] = [
+  { value: 'simple', label: 'Simple' },
+  { value: 'detailed', label: 'Detailed' },
 ];
 
 const BAR_HEIGHTS = [6, 9, 12, 15, 18];
@@ -190,6 +195,12 @@ export function SensorCard() {
           onChange={(v) => setSetting('sensitivity', v)}
         />
         <span className="text-caption text-fg-muted">Strict needs a steadier hand but avoids accidental triggers.</span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <span className="text-label">Gesture HUD</span>
+        <SegmentedControl label="Gesture HUD" options={HUD_DETAIL} value={settings.hudDetail} onChange={(v) => setSetting('hudDetail', v)} />
+        <span className="text-caption text-fg-muted">Detailed stays on screen with live tracking info: hands, pose, fps and latency.</span>
       </div>
     </section>
   );

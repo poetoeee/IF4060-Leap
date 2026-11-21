@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppStore, useProfiles } from '@/store';
+import { useToast } from '@/store/toast';
 import { SOURCE_META } from '@/tracking/labels';
 import type { SourceStatus } from '@/tracking/types';
 import { useTracking } from '@/tracking/useTracking';
@@ -80,7 +81,18 @@ export function Sidebar() {
         </div>
       </div>
 
-      <span className="pl-2 text-caption text-fg-muted">IF4060 · Kelompok 1 · 2026</span>
+      <div className="flex items-center justify-between pl-2">
+        <span className="text-caption text-fg-muted">IF4060 · Kelompok 1 · 2026</span>
+        <button type="button" onClick={resetDemoData} className="text-caption text-fg-muted hover:text-danger">
+          Reset demo
+        </button>
+      </div>
     </aside>
   );
+}
+
+function resetDemoData() {
+  if (!window.confirm('Reset all profiles and mappings to the demo seed?')) return;
+  useAppStore.getState().resetDemoData();
+  useToast.getState().show({ title: 'Demo data reset', message: 'Profiles are back to the seed.' });
 }

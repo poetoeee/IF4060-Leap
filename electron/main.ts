@@ -68,16 +68,16 @@ function createWindow() {
 }
 
 function createHudWindow() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-  const winWidth = 320;
-  const winHeight = 56;
+  const { x, y, width, height } = screen.getPrimaryDisplay().workArea;
+  // Fits the Detailed HUD; the transparent rest is click-through.
+  const winWidth = 480;
+  const winHeight = 260;
 
   hudWin = new BrowserWindow({
     width: winWidth,
     height: winHeight,
-    x: width - winWidth - 20,
-    y: height - winHeight - 20,
+    x: x + width - winWidth,
+    y: y + height - winHeight,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -411,20 +411,17 @@ ipcMain.handle('execute-action', async (_event, action: NativeAction) => {
   return { ok: true };
 });
 
-ipcMain.handle('update-hud', (_event, payload: { hud?: unknown }) => {
+/** `view` is the renderer's HudView; null hides the HUD. */
+ipcMain.handle('update-hud', (_event, view: unknown) => {
   if (!hudWin || hudWin.isDestroyed()) return { ok: false };
 
-  hudWin.webContents.send('hud-data', payload);
+  hudWin.webContents.send('hud-data', view);
 
-  if (payload && payload.hud) {
-    if (!hudWin.isVisible()) {
-      // showInactive displays the HUD without stealing focus from active presentation/app
-      hudWin.showInactive();
-    }
-  } else {
-    if (hudWin.isVisible()) {
-      hudWin.hide();
-    }
+  if (view && !hudWin.isVisible()) {
+    // showInactive displays the HUD without stealing focus from the active presentation/app.
+    hudWin.showInactive();
+  } else if (!view && hudWin.isVisible()) {
+    hudWin.hide();
   }
 
   return { ok: true };

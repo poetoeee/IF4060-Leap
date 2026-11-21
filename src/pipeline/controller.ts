@@ -17,6 +17,8 @@ export interface Entry {
   hand: Side;
   confidence: number;
   at: number;
+  /** Frame → dispatch time (ms). */
+  latency: number;
   outcome: Outcome;
   caps: string[];
   label: string;
@@ -35,20 +37,6 @@ interface ControllerState {
 }
 
 export const useController = create<ControllerState>(() => ({ recent: [], hud: null }));
-
-if (typeof window !== 'undefined') {
-  useController.subscribe((s, prev) => {
-    if (s.hud !== prev.hud) {
-      const activeProfile = getActiveProfile();
-      const enabled = useAppStore.getState().settings.controllerEnabled;
-      window.electronAPI?.updateHud?.({
-        hud: s.hud,
-        profileName: activeProfile?.name ?? '',
-        enabled,
-      });
-    }
-  });
-}
 
 const HUD_MS = 1200;
 const HUD_TOGGLE_MS = 2500;
@@ -69,7 +57,17 @@ export function setControllerEnabled(enabled: boolean) {
 }
 
 function record(e: GestureEvent, outcome: Outcome, caps: string[], label: string): Entry {
-  const entry: Entry = { id: nextId++, gesture: e.gesture, hand: e.hand, confidence: e.confidence, at: Date.now(), outcome, caps, label };
+  const entry: Entry = {
+    id: nextId++,
+    gesture: e.gesture,
+    hand: e.hand,
+    confidence: e.confidence,
+    at: Date.now(),
+    latency: performance.now() - e.t,
+    outcome,
+    caps,
+    label,
+  };
   useController.setState((s) => ({ recent: [entry, ...s.recent].slice(0, 5) }));
   return entry;
 }
@@ -115,7 +113,7 @@ function onEvent(e: GestureEvent, executor: ActionExecutor) {
       const entry = record(e, 'sent', actionCaps(m.action), m.label ?? actionSummary(m.action));
       showHud({ state: 'recognized', entry });
       executor.execute(m.action);
-      console.debug(`[exec] ${e.gesture} → ${entry.caps.join('+')} · detect→execute ${(performance.now() - e.t).toFixed(1)}ms`);
+      console.debug(`[exec] ${e.gesture} → ${entry.caps.join('+')} · ${entry.latency.toFixed(1)}ms`);
     }
   }
 }

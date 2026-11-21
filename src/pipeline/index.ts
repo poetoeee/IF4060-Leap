@@ -1,25 +1,12 @@
-import { create } from 'zustand';
 import { holdThresholds, repeatGestures } from '@/mapping/rules';
 import { Recognizer } from '@/recognizer/engine';
 import type { GestureEvent } from '@/recognizer/types';
 import { getActiveProfile, useAppStore } from '@/store';
 import { subscribeFrames, useTrackingStore } from '@/tracking/manager';
 
-export interface LoggedEvent extends GestureEvent {
-  id: number;
-  /** Frame → event processing time (ms). */
-  latency: number;
-}
-
-const LOG_SIZE = 8;
-
-/** Recent fired/candidate events (no `hold` spam). */
-export const useGestureLog = create<{ events: LoggedEvent[] }>(() => ({ events: [] }));
-
 export const recognizer = new Recognizer(useAppStore.getState().settings.sensitivity);
 
 const gestureCbs = new Set<(e: GestureEvent) => void>();
-let nextId = 0;
 
 export function subscribeGestures(cb: (e: GestureEvent) => void) {
   gestureCbs.add(cb);
@@ -29,17 +16,10 @@ export function subscribeGestures(cb: (e: GestureEvent) => void) {
 /** Wires frames → recognizer → subscribers. Returns a disposer. */
 export function startPipeline() {
   const offFrames = subscribeFrames((f) => {
-    const events = recognizer.process(f);
-    if (!events.length) return;
-    const latency = performance.now() - f.timestamp;
-    const logged: LoggedEvent[] = [];
-    for (const e of events) {
+    for (const e of recognizer.process(f)) {
       gestureCbs.forEach((cb) => cb(e));
-      if (e.kind === 'hold' || e.kind === 'repeat') continue;
-      logged.push({ ...e, id: nextId++, latency });
-      if (e.kind === 'gesture') console.debug(`[gesture] ${e.gesture} ${e.hand} ${(e.confidence * 100).toFixed(0)}% +${latency.toFixed(1)}ms`);
+      if (e.kind === 'gesture') console.debug(`[gesture] ${e.gesture} ${e.hand} ${(e.confidence * 100).toFixed(0)}% +${(performance.now() - f.timestamp).toFixed(1)}ms`);
     }
-    if (logged.length) useGestureLog.setState((s) => ({ events: [...logged.reverse(), ...s.events].slice(0, LOG_SIZE) }));
   });
   const syncProfile = () => {
     const profile = getActiveProfile();

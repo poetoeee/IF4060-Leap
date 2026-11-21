@@ -3,20 +3,20 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { Sidebar } from '@/components/Sidebar';
 import { ToastHost } from '@/components/Toast';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
-import { DebugOverlay } from '@/features/debug/DebugOverlay';
 import { DemoPage } from '@/features/demo/DemoPage';
+import { FloatingHudOverlay } from '@/features/hud/FloatingHudOverlay';
 import { Hud } from '@/features/hud/Hud';
+import { startHudSync } from '@/features/hud/view';
 import { ProfilePage } from '@/features/profiles/ProfilePage';
 import { startPipeline } from '@/pipeline';
 import { startController } from '@/pipeline/controller';
 import { useTrackingRuntime } from '@/tracking/useTracking';
 
-import { FloatingHudOverlay } from '@/features/hud/FloatingHudOverlay';
-
 function Shell() {
   useTrackingRuntime();
   useEffect(startPipeline, []);
   useEffect(startController, []);
+  useEffect(startHudSync, []);
   return (
     <div className="flex min-h-full">
       <Sidebar />
@@ -24,7 +24,6 @@ function Shell() {
         <Outlet />
       </main>
       <Hud />
-      <DebugOverlay />
       <ToastHost />
     </div>
   );
