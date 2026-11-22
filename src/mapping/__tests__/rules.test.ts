@@ -4,6 +4,7 @@ import {
   canRevert,
   freeGestures,
   handBlocks,
+  heightGestures,
   holdThresholds,
   repeatGestures,
   reverted,
@@ -140,5 +141,33 @@ describe('repeatGestures', () => {
   it('accepts up to 20 scroll lines', () => {
     expect(validateAction({ type: 'scroll', direction: 'up', amount: 20 })).toBeNull();
     expect(validateAction({ type: 'scroll', direction: 'up', amount: 21 })).not.toBeNull();
+  });
+});
+
+describe('height gestures', () => {
+  const withHeight = (m: Mapping): Profile => ({ ...presentation, mappings: [...presentation.mappings, m] });
+
+  it('lists the height gestures of the active profile, per hand', () => {
+    expect(heightGestures(undefined)).toEqual({ left: [], right: [] });
+    expect(heightGestures(presentation)).toEqual({ left: [], right: [] });
+    expect(heightGestures(withHeight(draft({ id: 'h', gesture: 'height_up', hand: 'right' })))).toEqual({
+      left: [],
+      right: ['height_up'],
+    });
+  });
+
+  it('counts an `any` hand for both hands', () => {
+    const p = withHeight(draft({ id: 'h', gesture: 'height_up', hand: 'any' }));
+    expect(heightGestures(p)).toEqual({ left: ['height_up'], right: ['height_up'] });
+  });
+
+  it('skips disabled mappings', () => {
+    const p = withHeight(draft({ id: 'h', gesture: 'height_up', hand: 'right', enabled: false }));
+    expect(heightGestures(p)).toEqual({ left: [], right: [] });
+  });
+
+  it('keeps the two directions apart', () => {
+    const p = withHeight(draft({ id: 'h', gesture: 'height_down', hand: 'left' }));
+    expect(heightGestures(p)).toEqual({ left: ['height_down'], right: [] });
   });
 });

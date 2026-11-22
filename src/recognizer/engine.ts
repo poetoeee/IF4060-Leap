@@ -1,4 +1,5 @@
 import type { GestureId, Sensitivity } from '@/mapping/types';
+import { isHeightGesture } from '@/mapping/rules';
 import type { TrackingFrame } from '@/tracking/types';
 import { HandDetectors } from './detectors';
 import { computeFeatures, poseOf, type Features, type Pose, type Sample } from './features';
@@ -7,6 +8,8 @@ import { DEFAULT_HOLDS, SENSITIVITY, type GestureEvent, type RecognizerConfig, t
 const COOLDOWN_MS = 500;
 const REFRACTORY_MS = 250;
 const HISTORY_MS = 600;
+/** Minimum gap between two height steps of the same direction. */
+const HEIGHT_STEP_COOLDOWN_MS = 40;
 
 interface HandTrack {
   history: Sample[];
@@ -29,7 +32,7 @@ export class Recognizer {
   private lastAny = -Infinity;
 
   constructor(sensitivity: Sensitivity = 'balanced', holdThresholds = DEFAULT_HOLDS) {
-    this.cfg = { ...SENSITIVITY[sensitivity], holdThresholds, repeatGestures: [] };
+    this.cfg = { ...SENSITIVITY[sensitivity], holdThresholds, repeatGestures: [], heightGestures: { left: [], right: [] } };
   }
 
   setSensitivity(s: Sensitivity) {
@@ -42,6 +45,11 @@ export class Recognizer {
 
   setRepeatGestures(gestures: GestureId[]) {
     this.cfg = { ...this.cfg, repeatGestures: gestures };
+  }
+
+  /** Height gestures per hand; empty switches that hand's height tracking off. */
+  setHeightGestures(gestures: Record<Side, GestureId[]>) {
+    this.cfg = { ...this.cfg, heightGestures: { left: [...gestures.left], right: [...gestures.right] } };
   }
 
   reset() {
@@ -64,13 +72,21 @@ export class Recognizer {
       while (track.history.length && t - track.history[0]!.t > HISTORY_MS) track.history.shift();
       track.features = f;
 
-      for (const hit of track.detectors.update(f, this.cfg)) {
+      for (const hit of track.detectors.update(f, this.cfg, hand.side)) {
         const base = { gesture: hit.gesture, hand: hand.side, confidence: hit.confidence, t, holdMs: hit.holdMs };
         if (hit.kind !== 'fire') {
           events.push({ ...base, kind: hit.kind });
           continue;
         }
         const key = `${hit.gesture}:${hand.side}:${hit.holdMs ?? ''}`;
+        if (isHeightGesture(hit.gesture)) {
+          // Height steps fire once per centimetre: they don't take part in the
+          // gesture cooldown and never hold back the other gestures.
+          if (t - (this.lastFire.get(key) ?? -Infinity) < HEIGHT_STEP_COOLDOWN_MS) continue;
+          this.lastFire.set(key, t);
+          events.push({ ...base, kind: 'gesture', steps: hit.steps });
+          continue;
+        }
         if (t - (this.lastFire.get(key) ?? -Infinity) < COOLDOWN_MS || t - this.lastAny < REFRACTORY_MS) continue;
         this.lastFire.set(key, t);
         this.lastAny = t;

@@ -33,6 +33,13 @@ const KEY_MAP: Record<string, Key> = {
   F5: Key.F5,
   F11: Key.F11,
 
+  // Zoom keys: Ctrl+= / Ctrl+- zoom in most apps and browsers.
+  Equal: Key.Equal,
+  Minus: Key.Minus,
+  '=': Key.Equal,
+  '-': Key.Minus,
+  '+': Key.Equal,
+
   // Modifiers
   Control: Key.LeftControl,
   Alt: Key.LeftAlt,

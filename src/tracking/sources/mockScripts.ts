@@ -1,11 +1,11 @@
 import type { HandState } from '../types';
 import { makeHand, type Pose } from './mockHand';
 
-export type MockGesture = 'swipe_left' | 'swipe_right' | 'swipe_up' | 'swipe_down' | 'pinch' | 'fist' | 'open_palm';
+export type MockGesture = 'swipe_left' | 'swipe_right' | 'swipe_up' | 'swipe_down' | 'pinch' | 'fist' | 'open_palm' | 'height';
 export type Side = Pose['side'];
 
-/** Keys 1–7: swipe left/right/up/down, pinch, fist, open palm. */
-export const MOCK_KEYS: MockGesture[] = ['swipe_left', 'swipe_right', 'swipe_up', 'swipe_down', 'pinch', 'fist', 'open_palm'];
+/** Keys 1–7: swipe left/right/up/down, pinch, fist, open palm. Key 8: raise and lower the hand. */
+export const MOCK_KEYS: MockGesture[] = ['swipe_left', 'swipe_right', 'swipe_up', 'swipe_down', 'pinch', 'fist', 'open_palm', 'height'];
 
 type Key = { t: number; dx?: number; dy?: number; curl?: number; thumb?: number; pinch?: number };
 
@@ -30,6 +30,8 @@ const SCRIPTS: Record<MockGesture, Key[]> = {
   pinch: [{ t: 0 }, { t: 100, ...OPEN }, { t: 250, ...OPEN, pinch: 1 }, { t: 550, ...OPEN, pinch: 1 }, { t: 700, ...OPEN }, { t: 900 }],
   fist: [{ t: 0 }, { t: 100 }, { t: 250, curl: 1 }, { t: 700, curl: 1 }, { t: 950 }],
   open_palm: [{ t: 0 }, { t: 150, curl: 0, thumb: 1 }, { t: 2650, curl: 0, thumb: 1 }, { t: 2850 }],
+  // A slow 10 cm rise and fall: too slow for a swipe, one height step per centimetre.
+  height: [{ t: 0 }, { t: 1400, dy: 100 }, { t: 2800, dy: 0 }, { t: 3400 }],
 };
 
 const smooth = (t: number) => t * t * (3 - 2 * t);

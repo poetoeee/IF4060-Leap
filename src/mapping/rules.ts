@@ -105,3 +105,20 @@ export function repeatGestures(p: Profile | undefined): GestureId[] {
   const own = p?.mappings.filter((m) => m.enabled && m.action.type === 'scroll' && m.action.repeat).map((m) => m.gesture) ?? [];
   return [...new Set(own)];
 }
+
+/** The two height gestures; each centimetre of hand height fires one input. */
+export const HEIGHT_GESTURES: GestureId[] = ['height_up', 'height_down'];
+
+/** Does this gesture fire once per centimetre of hand height? */
+export const isHeightGesture = (g: GestureId) => HEIGHT_GESTURES.includes(g);
+
+/** Height gestures per hand, as the recognizer sees them (`any` covers both). */
+export function heightGestures(p: Profile | undefined): Record<'left' | 'right', GestureId[]> {
+  const out: Record<'left' | 'right', GestureId[]> = { left: [], right: [] };
+  for (const m of p?.mappings ?? []) {
+    if (!m.enabled || !isHeightGesture(m.gesture)) continue;
+    const sides = m.hand === 'any' ? (['left', 'right'] as const) : ([m.hand] as const);
+    for (const side of sides) if (!out[side].includes(m.gesture)) out[side].push(m.gesture);
+  }
+  return out;
+}

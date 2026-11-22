@@ -39,13 +39,22 @@ describe('mock hand', () => {
 });
 
 describe('mock scripts', () => {
-  it('cover the 7 MVP gestures and end at rest', () => {
-    expect(MOCK_KEYS).toHaveLength(7);
+  it('cover the 7 MVP gestures plus the height script, and end at rest', () => {
+    expect(MOCK_KEYS).toHaveLength(8);
     for (const g of MOCK_KEYS) {
       const end = poseAt(g, 'right', scriptDuration(g));
       expect(end).toMatchObject({ curl: restPose('right').curl, pinch: 0 });
       expect(end.wrist).toEqual(restPose('right').wrist);
     }
+  });
+
+  it('raises the hand slowly enough for the height gesture', () => {
+    const frames = scriptFrames('height');
+    const ys = frames.map((f) => palmCenter(f.hand).y);
+    const travelled = Math.max(...ys) - Math.min(...ys);
+    const seconds = scriptDuration('height') / 1000;
+    // Slow enough to stay below the swipe guard of the height tracker.
+    expect(travelled / seconds).toBeLessThan(2.5 * handSize(frames[0]!.hand));
   });
 
   it('swipe right moves the palm right by > 1.4 × handSize', () => {

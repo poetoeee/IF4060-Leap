@@ -1,6 +1,6 @@
 import type { GestureId } from '@/mapping/types';
 import type { Features } from './features';
-import { CANDIDATE_MIN, type RecognizerConfig } from './types';
+import { CANDIDATE_MIN, type RecognizerConfig, type Side } from './types';
 
 /** Detector output before cooldowns. `fire` still has to pass the engine's cooldown/refractory checks. */
 export interface Hit {
@@ -8,6 +8,8 @@ export interface Hit {
   gesture: GestureId;
   confidence: number;
   holdMs?: number;
+  /** Height gestures only: how many centimetres were crossed in this frame. */
+  steps?: number;
 }
 
 // Margin m: 1 = exactly at threshold, 1.5 = comfortably past it.
@@ -32,6 +34,22 @@ const STILL_SPEED = 1.5;
 const REPEAT_SETTLE_MS = 350;
 const REPEAT_DELAY_MS = 400;
 const REPEAT_INTERVAL_MS = 120;
+
+/** One centimetre of height change is one step — and one input. */
+export const HEIGHT_STEP_MM = 10;
+/** The travelled height is a sum of floats, so the step comparison needs a hair of slack. */
+const HEIGHT_EPS = 1e-6;
+/** Smoothing of the palm height. */
+const HEIGHT_SMOOTH = 0.5;
+/** Once the smoothing has caught up this closely, the raw height is used. */
+const HEIGHT_SNAP_MM = 1;
+/** Palm speed (× hand size) above which the movement is a swipe, not a height change. */
+const HEIGHT_SPEED_GUARD = 2.5;
+/** Most height steps that may pile up in a single frame. */
+const MAX_HEIGHT_STEPS = 3;
+/** The hand has to be open enough to be "holding" something. */
+const HEIGHT_MAX_GRAB = 0.45;
+const HEIGHT_MIN_EXTENDED = 3;
 
 type Dir = 'left' | 'right' | 'up' | 'down';
 const OPPOSITE: Record<Dir, Dir> = { left: 'right', right: 'left', up: 'down', down: 'up' };
@@ -66,6 +84,9 @@ export class HandDetectors {
   private holdLastOk = 0;
   private holdsFired = new Set<number>();
 
+  /** Height tracking: smoothed palm height and the height change still to be spent. */
+  private height = { smooth: 0, pending: 0, started: false };
+
   /** Debug snapshot. */
   state() {
     return {
@@ -76,8 +97,57 @@ export class HandDetectors {
     };
   }
 
-  update(f: Features, cfg: RecognizerConfig): Hit[] {
-    return [...this.detectSwipe(f, cfg), ...this.detectRepeat(f), ...this.detectPinch(f, cfg), ...this.detectFist(f, cfg), ...this.detectPalm(f, cfg)];
+  update(f: Features, cfg: RecognizerConfig, side: Side): Hit[] {
+    return [
+      ...this.detectSwipe(f, cfg),
+      ...this.detectRepeat(f),
+      ...this.detectPinch(f, cfg),
+      ...this.detectFist(f, cfg),
+      ...this.detectPalm(f, cfg),
+      ...this.detectHeight(f, cfg, side),
+    ];
+  }
+
+  /** Height gestures: every centimetre the hand gains or loses is one step. */
+  private detectHeight(f: Features, cfg: RecognizerConfig, side: Side): Hit[] {
+    const wanted = cfg.heightGestures[side];
+    const wantsUp = wanted.includes('height_up');
+    const wantsDown = wanted.includes('height_down');
+    if (!wantsUp && !wantsDown) {
+      this.height = { smooth: 0, pending: 0, started: false };
+      return [];
+    }
+
+    const height = f.palm.y;
+    // A closed hand or a fast stroke is not a height change: rebase and wait.
+    if (f.grab > HEIGHT_MAX_GRAB || f.extendedCount < HEIGHT_MIN_EXTENDED || f.speed > HEIGHT_SPEED_GUARD * f.size) {
+      this.height = { smooth: height, pending: 0, started: true };
+      return [];
+    }
+    if (!this.height.started) {
+      this.height = { smooth: height, pending: 0, started: true };
+      return [];
+    }
+
+    const prev = this.height.smooth;
+    this.height.smooth = this.height.smooth + HEIGHT_SMOOTH * (height - this.height.smooth);
+    // Once the smoothing has caught up, take the raw height: the filtered
+    // travel lags by a hair, and a 10 cm rise has to count 10 cm — not 9.
+    if (Math.abs(height - this.height.smooth) < HEIGHT_SNAP_MM) this.height.smooth = height;
+    this.height.pending += this.height.smooth - prev;
+    if (Math.abs(this.height.pending) < HEIGHT_STEP_MM - HEIGHT_EPS) return [];
+
+    const up = this.height.pending > 0;
+    // Only a mapped direction counts; travel the other way is discarded so it
+    // cannot pile up and fire later all at once.
+    if (up ? !wantsUp : !wantsDown) {
+      this.height.pending = 0;
+      return [];
+    }
+
+    const steps = Math.min(MAX_HEIGHT_STEPS, Math.max(1, Math.floor((Math.abs(this.height.pending) + HEIGHT_EPS) / HEIGHT_STEP_MM)));
+    this.height.pending -= steps * HEIGHT_STEP_MM * (up ? 1 : -1);
+    return [{ kind: 'fire', gesture: up ? 'height_up' : 'height_down', confidence: f.confidence, steps }];
   }
 
   private detectSwipe(f: Features, { k, confirm, repeatGestures }: RecognizerConfig): Hit[] {

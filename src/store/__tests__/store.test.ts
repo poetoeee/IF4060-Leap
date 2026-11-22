@@ -159,3 +159,38 @@ describe('profile management', () => {
     expect(back.source).toBe('template');
   });
 });
+
+describe('height gesture mappings', () => {
+  beforeEach(() => mem.clear());
+
+  it('saves a height mapping and keeps it after a reload', async () => {
+    const { useAppStore } = await load();
+    const res = useAppStore.getState().addMapping('presentation', {
+      gesture: 'height_up',
+      hand: 'right',
+      action: { type: 'key', key: 'e' },
+      label: 'Raise',
+    });
+    expect(res.ok).toBe(true);
+
+    const again = (await load()).useAppStore.getState().profiles.find((p) => p.id === 'presentation')!;
+    expect(again.mappings.find((m) => m.gesture === 'height_up')?.action).toEqual({ type: 'key', key: 'e' });
+  });
+
+  it('keeps the two directions apart', async () => {
+    const { useAppStore } = await load();
+    useAppStore.getState().addMapping('presentation', { gesture: 'height_up', hand: 'right', action: { type: 'key', key: 'e' } });
+    useAppStore.getState().addMapping('presentation', { gesture: 'height_down', hand: 'right', action: { type: 'key', key: 'q' } });
+
+    const p = useAppStore.getState().profiles.find((x) => x.id === 'presentation')!;
+    expect(p.mappings.find((m) => m.gesture === 'height_up')?.action).toEqual({ type: 'key', key: 'e' });
+    expect(p.mappings.find((m) => m.gesture === 'height_down')?.action).toEqual({ type: 'key', key: 'q' });
+  });
+
+  it('refuses a second height mapping for the same hand', async () => {
+    const { useAppStore } = await load();
+    useAppStore.getState().addMapping('presentation', { gesture: 'height_up', hand: 'right', action: { type: 'key', key: 'e' } });
+    const res = useAppStore.getState().addMapping('presentation', { gesture: 'height_up', hand: 'right', action: { type: 'key', key: 'q' } });
+    expect(res.ok).toBe(false);
+  });
+});

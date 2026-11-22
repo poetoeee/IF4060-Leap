@@ -12,6 +12,8 @@ const KEY_LABELS: Record<string, string> = {
   PageUp: 'PgUp',
   PageDown: 'PgDn',
   Backspace: '⌫',
+  Equal: '=',
+  Minus: '-',
 };
 
 const MODIFIER_ORDER = ['Control', 'Alt', 'Shift', 'Meta'];

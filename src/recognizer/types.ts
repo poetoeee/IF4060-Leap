@@ -15,6 +15,8 @@ export interface GestureEvent {
   t: number;
   /** Open Palm: threshold reached (`gesture`) or time held so far (`hold`). */
   holdMs?: number;
+  /** Height gestures: how many centimetres were crossed — one input each. */
+  steps?: number;
 }
 
 export interface RecognizerConfig {
@@ -26,6 +28,8 @@ export interface RecognizerConfig {
   holdThresholds: number[];
   /** Swipes that keep emitting `repeat` while the hand is held still afterwards. */
   repeatGestures: GestureId[];
+  /** Height gestures per hand; empty for a hand switches its height tracking off. */
+  heightGestures: Record<Side, GestureId[]>;
 }
 
 export const SENSITIVITY: Record<Sensitivity, Pick<RecognizerConfig, 'k' | 'confirm'>> = {

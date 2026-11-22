@@ -41,6 +41,8 @@ const EXPECTED: Record<MockGesture, string[]> = {
   pinch: ['pinch'],
   fist: ['fist'],
   open_palm: ['open_palm@600', 'open_palm@2000'],
+  // The height script moves the hand slowly — no gesture fires until one is mapped.
+  height: [],
 };
 
 describe('rest pose', () => {
@@ -154,6 +156,49 @@ describe('hold-to-repeat', () => {
 
   it('does not repeat when the hand moves on after the swipe', () => {
     expect(repeats(swipeUp(['swipe_up'], null))).toEqual([]);
+  });
+});
+
+describe('height gestures', () => {
+  /** Feeds the height script (a slow 10 cm rise and fall) with the height gestures mapped. */
+  function heightRun(hands: Record<Side, GestureId[]>, side: Side = 'right') {
+    const rec = new Recognizer();
+    rec.setHeightGestures(hands);
+    const evs: GestureEvent[] = [];
+    let t = 0;
+    const feed = (pose: Pose) => {
+      evs.push(...rec.process({ source: 'mock', timestamp: t, hands: [makeHand(pose)] }));
+      t += DT;
+    };
+    for (let i = 0; i < 1000; i += DT) feed(restPose(side));
+    for (let s = 0; s <= scriptDuration('height'); s += DT) feed(poseAt('height', side, s));
+    return evs;
+  }
+
+  const gestures = (evs: GestureEvent[]) => evs.filter((e) => e.kind === 'gesture');
+
+  it('sends one input per centimetre the hand rises and falls', () => {
+    const evs = gestures(heightRun({ left: [], right: ['height_up', 'height_down'] }));
+    expect(evs.filter((e) => e.gesture === 'height_up')).toHaveLength(10);
+    expect(evs.filter((e) => e.gesture === 'height_down')).toHaveLength(10);
+    expect(evs.every((e) => e.steps === 1)).toBe(true);
+  });
+
+  it('stays quiet for the hand without a height mapping', () => {
+    expect(gestures(heightRun({ left: [], right: [] }))).toEqual([]);
+    // The mapping is per hand: the left hand moves, only the right hand is mapped.
+    expect(gestures(heightRun({ left: [], right: ['height_up'] }, 'left'))).toEqual([]);
+  });
+
+  it('does not fire a direction that is not mapped', () => {
+    const evs = gestures(heightRun({ left: [], right: ['height_up'] }));
+    expect(evs).toHaveLength(10);
+    expect(evs.every((e) => e.gesture === 'height_up')).toBe(true);
+  });
+
+  it('reports the travelled distance as steps', () => {
+    const evs = gestures(heightRun({ left: [], right: ['height_up', 'height_down'] }));
+    expect(evs.reduce((n, e) => n + (e.steps ?? 0), 0)).toBe(20);
   });
 });
 

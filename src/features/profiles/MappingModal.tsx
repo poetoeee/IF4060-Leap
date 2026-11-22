@@ -1,17 +1,16 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { GestureGlyph } from '@/components/GestureGlyph';
 import { Icon } from '@/components/Icon';
 import { KeyCaps } from '@/components/KeyCap';
 import { Modal } from '@/components/Modal';
-import { SegmentedControl, type SegmentOption } from '@/components/SegmentedControl';
-import { Toggle } from '@/components/Toggle';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { actionCaps, actionSummary } from '@/mapping/format';
 import { GESTURE, GESTURES, HAND_LABEL } from '@/mapping/gestures';
-import { canRevert, freeGestures, handBlocks, HANDS, MAX_SCROLL_LINES, referenceTemplate, templateCounterpart, validateMapping } from '@/mapping/rules';
+import { canRevert, freeGestures, handBlocks, HANDS, isHeightGesture, referenceTemplate, templateCounterpart, validateMapping } from '@/mapping/rules';
 import type { Action, GestureId, Hand, Mapping, Profile } from '@/mapping/types';
-import { KeyRecorder } from './KeyRecorder';
+import { ActionEditor, Field } from './ActionEditor';
 import { SOURCE_BADGE } from './sourceBadge';
 
 export type MappingModalMode = { kind: 'add'; gesture?: GestureId } | { kind: 'edit'; mapping: Mapping };
@@ -24,16 +23,9 @@ interface Props {
   onRevert: (m: Mapping) => void;
 }
 
-type ActionType = Action['type'];
-
-const ACTION_TYPES: SegmentOption<ActionType>[] = [
-  { value: 'key', label: 'Key', icon: 'keyboard' },
-  { value: 'combo', label: 'Combo', icon: 'keyboard' },
-  { value: 'click', label: 'Click', icon: 'mouse-click' },
-  { value: 'scroll', label: 'Scroll', icon: 'move' },
-];
-
 const HAND_NAME: Record<Hand, string> = { right: 'Right', left: 'Left', any: 'Any' };
+
+const EMPTY_ACTION: Action = { type: 'key', key: '' };
 
 function firstFreeHand(p: Profile, g: GestureId, ignoreId?: string): Hand {
   const blocks = handBlocks(p, g, ignoreId);
@@ -48,24 +40,9 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
 
   const [gesture, setGesture] = useState<GestureId>(initialGesture);
   const [hand, setHand] = useState<Hand>(editing?.hand ?? firstFreeHand(profile, initialGesture));
-  const [type, setType] = useState<ActionType>(init?.type ?? 'key');
-  const [key, setKey] = useState<string[]>(init?.type === 'key' ? [init.key] : []);
-  const [combo, setCombo] = useState<string[]>(init?.type === 'combo' ? init.keys : []);
-  const [button, setButton] = useState<'left' | 'right'>(init?.type === 'click' ? init.button : 'left');
-  const [direction, setDirection] = useState<'up' | 'down'>(init?.type === 'scroll' ? init.direction : 'up');
-  const [amount, setAmount] = useState(init?.type === 'scroll' ? init.amount : 3);
-  const [repeat, setRepeat] = useState(init?.type === 'scroll' && !!init.repeat);
+  const [action, setAction] = useState<Action>(init ?? EMPTY_ACTION);
   const [label, setLabel] = useState(editing?.label ?? '');
   const [error, setError] = useState<string | null>(null);
-
-  const action: Action =
-    type === 'key'
-      ? { type, key: key[0] ?? '' }
-      : type === 'combo'
-        ? { type, keys: combo }
-        : type === 'click'
-          ? { type, button }
-          : { type, direction, amount, ...(repeat && { repeat }) };
 
   const draft: Mapping = {
     id: editing?.id ?? 'draft',
@@ -141,7 +118,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
                   <Icon name="revert" size={14} className="mt-px" />
                   <span>
                     Template default: {actionSummary(tpl.action)}.{' '}
-                    {editing.source === 'template' ? 'Saving a different action marks it as Edited — you can revert anytime.' : 'You can revert to it anytime.'}
+                    {editing.source === 'template' ? 'Saving a different action marks it as Edited — you can revert anytime.' : 'You can revert anytime.'}
                   </span>
                 </div>
               )}
@@ -199,69 +176,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
             </Field>
           )}
 
-          <Field label="Action type">
-            <SegmentedControl label="Action type" value={type} onChange={setType} options={ACTION_TYPES} />
-          </Field>
-
-          {type === 'key' && (
-            <Field label="Key">
-              <KeyRecorder mode="key" keys={key} onChange={setKey} />
-            </Field>
-          )}
-          {type === 'combo' && (
-            <Field label="Key combination" hint="up to 3 keys">
-              <KeyRecorder mode="combo" keys={combo} onChange={setCombo} />
-            </Field>
-          )}
-          {type === 'click' && (
-            <Field label="Button">
-              <SegmentedControl
-                label="Mouse button"
-                value={button}
-                onChange={setButton}
-                options={[
-                  { value: 'left', label: 'Left click' },
-                  { value: 'right', label: 'Right click' },
-                ]}
-              />
-            </Field>
-          )}
-          {type === 'scroll' && (
-            <>
-              <Field label="Direction">
-                <SegmentedControl
-                  label="Scroll direction"
-                  value={direction}
-                  onChange={setDirection}
-                  options={[
-                    { value: 'up', label: '↑ Up' },
-                    { value: 'down', label: '↓ Down' },
-                  ]}
-                />
-              </Field>
-              <Field label="Scroll speed" hint="per gesture">
-                <div className="flex items-center gap-4">
-                  <input
-                    type="range"
-                    min={1}
-                    max={MAX_SCROLL_LINES}
-                    value={amount}
-                    onChange={(e) => setAmount(Number(e.target.value))}
-                    className="flex-1 accent-accent"
-                    aria-label="Scroll lines"
-                  />
-                  <span className="w-16 text-right font-mono text-key">{amount} lines</span>
-                </div>
-              </Field>
-              <div className="flex items-center gap-3">
-                <div className="flex flex-1 flex-col gap-0.5">
-                  <span className="text-label">Keep scrolling while hand is held up</span>
-                  <span className="text-caption text-fg-muted">Like holding the scroll wheel</span>
-                </div>
-                <Toggle label="Keep scrolling while hand is held up" checked={repeat} onChange={setRepeat} />
-              </div>
-            </>
-          )}
+          <ActionEditor initial={init ?? EMPTY_ACTION} onChange={setAction} allowRepeat={!isHeightGesture(gesture)} />
 
           <Field label="Label (optional)">
             <input
@@ -277,18 +192,6 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
         {!editing && <HowTo gesture={gesture} hand={hand} caps={actionCaps(action)} />}
       </div>
     </Modal>
-  );
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <span className="flex-1 text-label">{label}</span>
-        {hint && <span className="t-overline text-fg-muted">{hint}</span>}
-      </div>
-      {children}
-    </div>
   );
 }
 

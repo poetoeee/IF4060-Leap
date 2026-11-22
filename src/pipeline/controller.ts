@@ -3,8 +3,8 @@ import { NativeActionExecutor } from '@/executor/native';
 import type { ActionExecutor } from '@/executor/types';
 import { actionCaps, actionSummary } from '@/mapping/format';
 import { resolve } from '@/mapping/resolver';
-import { PAUSE_HOLD_MS } from '@/mapping/rules';
-import type { GestureId } from '@/mapping/types';
+import { isHeightGesture, PAUSE_HOLD_MS } from '@/mapping/rules';
+import type { Action, GestureId } from '@/mapping/types';
 import type { GestureEvent, Side } from '@/recognizer/types';
 import { getActiveProfile, useAppStore } from '@/store';
 import { subscribeGestures } from './index';
@@ -120,11 +120,30 @@ function onEvent(e: GestureEvent, executor: ActionExecutor) {
       return showHud({ state: 'recognized', entry: record(e, 'disabled', actionCaps(r.mapping.action), 'Mapping off') });
     case 'execute': {
       const m = r.mapping;
-      const entry = record(e, 'sent', actionCaps(m.action), m.label ?? actionSummary(m.action));
+      const steps = e.steps ?? 1;
+      const base = m.label ?? actionSummary(m.action);
+      // Height gestures report how far the hand travelled, one input per centimetre.
+      const label = isHeightGesture(m.gesture) ? `${base} · ${steps} cm` : steps > 1 ? `${base} · ${steps}×` : base;
+      const entry = record(e, 'sent', actionCaps(m.action), label);
       showHud({ state: 'recognized', entry });
-      executor.execute(m.action);
-      console.debug(`[exec] ${e.gesture} → ${entry.caps.join('+')} · ${entry.latency.toFixed(1)}ms`);
+      // Height gestures send one input per centimetre of movement.
+      if (steps > 1) void sendSteps(executor, m.action, steps);
+      else executor.execute(m.action);
+      console.debug(`[exec] ${e.gesture} → ${entry.caps.join('+')}${steps > 1 ? ` ×${steps}` : ''} · ${entry.latency.toFixed(1)}ms`);
     }
+  }
+}
+
+/** Delay between two inputs of one height gesture (ms). */
+const HEIGHT_INPUT_DELAY_MS = 60;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Height gestures send one input per centimetre, so a bigger move sends more. */
+async function sendSteps(executor: ActionExecutor, action: Action, steps: number) {
+  for (let i = 0; i < steps; i++) {
+    executor.execute(action);
+    if (i < steps - 1) await sleep(HEIGHT_INPUT_DELAY_MS);
   }
 }
 

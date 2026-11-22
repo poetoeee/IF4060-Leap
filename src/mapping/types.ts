@@ -9,7 +9,9 @@ export type GestureId =
   | 'fist'
   | 'open_palm'
   | 'tap'
-  | 'circle';
+  | 'circle'
+  | 'height_up'
+  | 'height_down';
 
 export type Hand = 'left' | 'right' | 'any';
 

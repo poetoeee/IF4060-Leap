@@ -19,6 +19,8 @@ export const GESTURES: GestureMeta[] = [
   { id: 'open_palm', name: 'Open Palm', available: true, howTo: 'Spread all five fingers, palm to the camera, and hold still.' },
   { id: 'tap', name: 'Tap', available: false, howTo: 'Needs the Leap Motion sensor.' },
   { id: 'circle', name: 'Circle', available: false, howTo: 'Needs the Leap Motion sensor.' },
+  { id: 'height_up', name: 'Height Up', available: true, howTo: 'Open hand, raise it slowly. Every centimetre you gain sends the action once.' },
+  { id: 'height_down', name: 'Height Down', available: true, howTo: 'Open hand, lower it slowly. Every centimetre you drop sends the action once.' },
 ];
 
 export const GESTURE: Record<GestureId, GestureMeta> = Object.fromEntries(GESTURES.map((g) => [g.id, g])) as Record<GestureId, GestureMeta>;

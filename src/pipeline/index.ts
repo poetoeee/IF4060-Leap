@@ -1,4 +1,4 @@
-import { holdThresholds, repeatGestures } from '@/mapping/rules';
+import { heightGestures, holdThresholds, repeatGestures } from '@/mapping/rules';
 import { Recognizer } from '@/recognizer/engine';
 import type { GestureEvent } from '@/recognizer/types';
 import { getActiveProfile, useAppStore } from '@/store';
@@ -25,6 +25,7 @@ export function startPipeline() {
     const profile = getActiveProfile();
     recognizer.setHoldThresholds(holdThresholds(profile));
     recognizer.setRepeatGestures(repeatGestures(profile));
+    recognizer.setHeightGestures(heightGestures(profile));
   };
   syncProfile();
   const offSettings = useAppStore.subscribe((s, prev) => {
