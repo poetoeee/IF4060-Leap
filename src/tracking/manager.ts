@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { createSource } from './sources';
-import type { HandState, SourceId, SourceStatus, TrackingFrame, TrackingSource } from './types';
+import type { HandState, SourceId, SourcePreview, SourceStatus, TrackingFrame, TrackingSource } from './types';
 
 interface TrackingState {
   sourceId: SourceId | null;
@@ -9,7 +9,7 @@ interface TrackingState {
   fps: number;
   /** Mean confidence of visible hands, 0 when none. */
   handConfidence: number;
-  preview: HTMLVideoElement | null;
+  preview: SourcePreview | null;
 }
 
 export const useTrackingStore = create<TrackingState>(() => ({
@@ -24,6 +24,7 @@ const frameCbs = new Set<(f: TrackingFrame) => void>();
 let source: TrackingSource | null = null;
 let detach: (() => void)[] = [];
 let latest: TrackingFrame | null = null;
+let previewWanted = false;
 
 export function subscribeFrames(cb: (f: TrackingFrame) => void) {
   frameCbs.add(cb);
@@ -49,7 +50,14 @@ export function setSource(id: SourceId) {
     }),
   ];
   useTrackingStore.setState({ sourceId: id, fps: 0, handConfidence: 0 });
+  src.setPreviewEnabled?.(previewWanted);
   void src.start();
+}
+
+/** Whether a preview is on screen; sources that stream it separately pause when it isn't. */
+export function setPreviewWanted(on: boolean) {
+  previewWanted = on;
+  source?.setPreviewEnabled?.(on);
 }
 
 export function stopSource() {

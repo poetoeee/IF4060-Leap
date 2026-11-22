@@ -40,7 +40,7 @@ You can start and stop the Python bridge directly from the Gesturmap desktop app
 
 Keep the terminal open. It prints `service=running device=connected` once the controller is ready, and logs each browser that connects.
 
-If it stays at `service=running device=disconnected`, Gemini is running but LeapC sees no controller. Reconnect the USB cable directly to the computer, avoid a passive USB hub, close TouchFree and other Leap applications, and confirm the controller appears in Ultraleap Control Panel before restarting the bridge. The app intentionally shows the Leap hand skeleton only; the controller's infrared camera image is not streamed.
+If it stays at `service=running device=disconnected`, Gemini is running but LeapC sees no controller. Reconnect the USB cable directly to the computer, avoid a passive USB hub, close TouchFree and other Leap applications, and confirm the controller appears in Ultraleap Control Panel before restarting the bridge. The Dashboard stage shows the hand skeleton; turn on **Camera preview** there to also see the left infrared camera (as an inset, since it looks up from below and doesn't line up with the skeleton).
 
 | App shows | Meaning |
 |---|---|
@@ -56,7 +56,7 @@ If it stays at `service=running device=disconnected`, Gemini is running but Leap
 python bridge/fake_bridge.py
 ```
 
-Select **Leap** in the app: the skeleton moves and the HUD shows Swipe Right. Stop it before running the real bridge — both use port 8765.
+Select **Leap** in the app: the skeleton moves and the HUD shows Swipe Right. With **Camera preview** on, the IR inset shows a bright blob following the hand. Stop it before running the real bridge — both use port 8765.
 
 ## Protocol
 
@@ -64,5 +64,7 @@ Select **Leap** in the app: the skeleton moves and the HUD shows Swipe Right. St
 { "type": "frame",  "data": { "timestamp": 123.4, "hands": [HandState] } }
 { "type": "status", "data": { "service": "running|missing", "device": "connected|disconnected" } }
 ```
+
+IR preview: the app sends `{ "type": "preview", "data": { "enabled": true|false } }`. While any client has it enabled, the bridge turns on the LeapC Images policy and sends that client binary messages at ~15 Hz: `<u16 width><u16 height>` (little-endian) followed by 8-bit grayscale pixels of the left camera, downscaled to at most 320 px wide.
 
 `HandState` is the app's common hand format (`src/tracking/types.ts`): 21 landmarks in MediaPipe order (wrist, thumb, index…pinky), millimetres, +x right, +y up (recentred by −200 mm), +z toward the user, plus `native.grab` / `native.pinch` from LeapC.

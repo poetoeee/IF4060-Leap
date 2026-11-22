@@ -6,11 +6,15 @@ leapc-python-bindings (`pip install -e leapc-python-api`). See bridge/README.md.
 Messages (JSON):
   {"type": "frame",  "data": {"timestamp": ms, "hands": [HandState, ...]}}
   {"type": "status", "data": {"service": "running|missing", "device": "connected|disconnected"}}
+Binary messages: IR preview, `<u16 width><u16 height>` + 8-bit grayscale pixels, only to clients that sent
+  {"type": "preview", "data": {"enabled": true}}
 """
 import asyncio
 import json
+import math
 import os
 import platform
+import struct
 import sys
 import threading
 import time
@@ -173,6 +177,8 @@ def _ensure_leapc_cffi():
 try:
     _ensure_leapc_cffi()
     import leap
+    from leap.enums import PolicyFlag
+    from leapc_cffi import ffi
 except ImportError as exc:
     raise SystemExit(
         "Cannot import the Ultraleap Python bindings.\n"
@@ -195,6 +201,8 @@ MAX_HZ = 60
 # Leap reports height above the device; recentre so a hand ~20 cm above it sits at y = 0.
 Y_OFFSET_MM = 200.0
 RETRY_S = 2.0
+IMAGE_HZ = 15
+IMAGE_MAX_WIDTH = 320
 
 
 def vec(v):
@@ -216,6 +224,16 @@ def to_hand_state(hand):
     }
 
 
+def encode_image(image):
+    """Left IR camera image -> `<u16 w><u16 h>` + 8-bit pixels, downscaled to at most IMAGE_MAX_WIDTH."""
+    c = image.c_data
+    w, h, bpp = c.properties.width, c.properties.height, c.properties.bpp
+    raw = ffi.buffer(ffi.cast("uint8_t *", c.data) + c.offset, w * h * bpp)[:]
+    step = math.ceil(w / IMAGE_MAX_WIDTH)
+    rows = [raw[r * w * bpp:(r + 1) * w * bpp:step * bpp] for r in range(0, h, step)]
+    return struct.pack("<HH", len(rows[0]), len(rows)) + b"".join(rows)
+
+
 class Bridge(leap.Listener):
     """Runs on the LeapC poll thread; hands results to the asyncio loop thread-safely."""
 
@@ -223,9 +241,13 @@ class Bridge(leap.Listener):
         super().__init__()
         self.loop = loop
         self.clients = set()
+        self.image_clients = set()
         self.service = "missing"
         self.device = "disconnected"
         self.last_sent = 0.0
+        self.last_image = 0.0
+        # Wakes run_leap so the Images policy follows preview requests promptly.
+        self.wake = threading.Event()
 
     # --- LeapC callbacks (poll thread) ---
     def on_connection_event(self, event):
@@ -258,6 +280,18 @@ class Bridge(leap.Listener):
             return
         self.post({"type": "frame", "data": {"timestamp": now * 1000.0, "hands": hands}})
 
+    def on_image_event(self, event):
+        now = time.monotonic()
+        if not self.image_clients or now - self.last_image < 1.0 / IMAGE_HZ:
+            return
+        self.last_image = now
+        try:
+            payload = encode_image(event.image[0])
+        except Exception as exc:
+            print("[bridge] image skipped:", exc)
+            return
+        self.loop.call_soon_threadsafe(self.send_images, payload)
+
     # --- shared ---
     def set_status(self, service=None, device=None):
         self.service = service or self.service
@@ -276,20 +310,45 @@ class Bridge(leap.Listener):
         for ws in list(self.clients):
             asyncio.ensure_future(self.safe_send(ws, text))
 
-    async def safe_send(self, ws, text):
+    def send_images(self, payload):
+        for ws in list(self.image_clients):
+            asyncio.ensure_future(self.safe_send(ws, payload))
+
+    async def safe_send(self, ws, message):
         try:
-            await ws.send(text)
+            await ws.send(message)
         except websockets.ConnectionClosed:
-            self.clients.discard(ws)
+            self.drop(ws)
+
+    def drop(self, ws):
+        self.clients.discard(ws)
+        self.set_preview(ws, False)
+
+    def set_preview(self, ws, enabled):
+        if enabled == (ws in self.image_clients):
+            return
+        if enabled:
+            self.image_clients.add(ws)
+        else:
+            self.image_clients.discard(ws)
+        self.wake.set()
 
     async def handler(self, ws, path=None):  # `path` for websockets < 10.1
         self.clients.add(ws)
         print("[bridge] client connected ({})".format(len(self.clients)))
         try:
             await ws.send(json.dumps(self.status_message()))
-            await ws.wait_closed()
+            async for raw in ws:
+                try:
+                    msg = json.loads(raw)
+                except ValueError:
+                    continue
+                if isinstance(msg, dict) and msg.get("type") == "preview":
+                    self.set_preview(ws, bool(msg.get("data", {}).get("enabled")))
+        except websockets.ConnectionClosed:
+            pass
         finally:
-            self.clients.discard(ws)
+            self.drop(ws)
             print("[bridge] client left ({})".format(len(self.clients)))
 
 
@@ -302,10 +361,20 @@ def run_leap(bridge):
             with connection.open():
                 connection.set_tracking_mode(leap.TrackingMode.Desktop)
                 bridge.set_status(device="connected" if connection.get_devices() else "disconnected")
+                images_on = False
                 while True:
+                    bridge.wake.clear()
+                    want_images = bool(bridge.image_clients)
+                    if want_images != images_on:
+                        images = [PolicyFlag.Images]
+                        if want_images:
+                            connection.set_policy_flags(flags_to_set=images)
+                        else:
+                            connection.set_policy_flags(flags_to_clear=images)
+                        images_on = want_images
                     devices = connection.get_devices()
                     bridge.set_status(device="connected" if devices else "disconnected")
-                    time.sleep(1)
+                    bridge.wake.wait(1)
         except Exception as exc:
             print("[bridge] Leap connection failed: {} - retrying in {}s".format(exc, RETRY_S))
             bridge.set_status(service="missing", device="disconnected")

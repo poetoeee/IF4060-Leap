@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sensitivity: 'balanced',
   trackingSource: 'camera',
   cameraPreview: true,
+  irPreview: false,
   hudDetail: 'simple',
   userName: 'Edo',
   leapSdkPath: '',

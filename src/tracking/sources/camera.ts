@@ -1,5 +1,5 @@
 import { FilesetResolver, HandLandmarker, type HandLandmarkerResult } from '@mediapipe/tasks-vision';
-import { VIEW_WIDTH_MM, type HandState } from '../types';
+import { VIEW_WIDTH_MM, type HandState, type SourcePreview } from '../types';
 import { parkPreview } from '../preview';
 import { BaseSource } from './base';
 
@@ -47,8 +47,8 @@ export class CameraSource extends BaseSource {
   private raf = 0;
   private gen = 0;
 
-  getPreview() {
-    return this.video;
+  getPreview(): SourcePreview | null {
+    return this.video && { el: this.video, aligned: true };
   }
 
   async start() {

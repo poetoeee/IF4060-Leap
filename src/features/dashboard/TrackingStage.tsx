@@ -12,7 +12,7 @@ import { useController } from '@/pipeline/controller';
 import { useAppStore } from '@/store';
 import { palmCenter, project } from '@/tracking/hand';
 import { SOURCE_META } from '@/tracking/labels';
-import { getLatestFrame, restartSource } from '@/tracking/manager';
+import { getLatestFrame, restartSource, setPreviewWanted } from '@/tracking/manager';
 import { parkPreview } from '@/tracking/preview';
 import { DEFAULT_VIEW_ASPECT } from '@/tracking/types';
 import { useTracking } from '@/tracking/useTracking';
@@ -47,13 +47,16 @@ function readTelemetry(): Telemetry {
 
 export function TrackingStage() {
   const { sourceId, status, detail, fps, preview } = useTracking();
-  const showPreview = useAppStore((s) => s.settings.cameraPreview);
+  const meta = sourceId ? SOURCE_META[sourceId] : null;
+  const previewSetting = meta?.previewSetting;
+  const showPreview = useAppStore((s) => (previewSetting ? s.settings[previewSetting] : false));
   const setSetting = useAppStore((s) => s.setSetting);
   const [tele, setTele] = useState<Telemetry>({ tag: '', height: '—', inZone: null });
-  const videoBox = useRef<HTMLDivElement>(null);
+  const backdropBox = useRef<HTMLDivElement>(null);
+  const insetBox = useRef<HTMLDivElement>(null);
   const running = status === 'running';
-  const meta = sourceId ? SOURCE_META[sourceId] : null;
-  const aspect = preview?.videoHeight ? preview.videoHeight / preview.videoWidth : DEFAULT_VIEW_ASPECT;
+  const video = preview?.el instanceof HTMLVideoElement ? preview.el : null;
+  const aspect = video?.videoHeight ? video.videoHeight / video.videoWidth : DEFAULT_VIEW_ASPECT;
 
   useEffect(() => {
     if (!running) return;
@@ -62,19 +65,26 @@ export function TrackingStage() {
   }, [running]);
 
   useEffect(() => {
-    const box = videoBox.current;
+    setPreviewWanted(showPreview);
+    return () => setPreviewWanted(false);
+  }, [showPreview]);
+
+  useEffect(() => {
+    const box = (preview?.aligned ? backdropBox : insetBox).current;
     if (!box || !preview) return;
-    preview.className = 'size-full -scale-x-100 object-cover';
-    box.appendChild(preview);
-    // A stopped camera has already removed its video; only park a live one.
+    const { el } = preview;
+    el.className = preview.aligned ? 'size-full -scale-x-100 object-cover' : 'block w-full';
+    box.appendChild(el);
     return () => {
-      if (preview.srcObject) parkPreview(preview);
+      // A stopped camera has already removed its video; only park a live one.
+      if (!(el instanceof HTMLVideoElement)) el.remove();
+      else if (el.srcObject) parkPreview(el);
     };
   }, [preview]);
 
   return (
     <div className="stage-bg relative min-h-0 flex-1 overflow-hidden rounded-card border">
-      <div ref={videoBox} className={`absolute inset-0 opacity-70 ${preview && showPreview ? '' : 'hidden'}`} />
+      <div ref={backdropBox} className={`absolute inset-0 opacity-70 ${preview?.aligned && showPreview ? '' : 'hidden'}`} />
 
       {running && <OptimalZone aspect={aspect} tag={tele.tag} />}
       {running && <SkeletonCanvas aspect={aspect} />}
@@ -86,13 +96,22 @@ export function TrackingStage() {
         </span>
       </div>
 
-      {preview && (
+      {preview && previewSetting && (
         <div className="absolute right-[15px] top-[11px] flex items-center gap-2.5 rounded-ctrl border bg-inset py-1.5 pl-3 pr-2">
           <Icon name="camera" size={14} className="text-fg-secondary" />
           <span className="text-caption text-fg-secondary">Camera preview</span>
-          <Toggle label="Camera preview" checked={showPreview} onChange={(v) => setSetting('cameraPreview', v)} />
+          <Toggle label="Camera preview" checked={showPreview} onChange={(v) => setSetting(previewSetting, v)} />
         </div>
       )}
+
+      <div
+        className={`absolute right-[15px] top-[52px] w-[260px] overflow-hidden rounded-ctrl-lg border bg-inset ${
+          preview && !preview.aligned && showPreview ? '' : 'hidden'
+        }`}
+      >
+        <div ref={insetBox} />
+        <span className="t-overline absolute left-2.5 top-2 text-fg-muted">ir camera · from below</span>
+      </div>
 
       {running ? (
         <div className="absolute bottom-[15px] left-[15px] flex flex-col gap-1.5 rounded-ctrl-lg border bg-inset px-3 py-2.5 font-mono">

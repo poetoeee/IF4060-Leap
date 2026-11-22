@@ -1,4 +1,4 @@
-import type { HandState, SourceStatus } from '../types';
+import type { HandState, SourcePreview, SourceStatus } from '../types';
 import { BaseSource } from './base';
 
 export const LEAP_BRIDGE_URL = 'ws://127.0.0.1:8765';
@@ -48,6 +48,24 @@ export function parseBridgeMessage(raw: string): BridgeMessage | null {
   return null;
 }
 
+export interface IrImage {
+  width: number;
+  height: number;
+  pixels: Uint8Array;
+}
+
+const IR_HEADER_BYTES = 4;
+
+/** Binary bridge message: `<u16 width><u16 height>` (little-endian) + 8-bit grayscale pixels. */
+export function parseIrImage(buf: ArrayBuffer): IrImage | null {
+  if (buf.byteLength < IR_HEADER_BYTES) return null;
+  const header = new DataView(buf);
+  const width = header.getUint16(0, true);
+  const height = header.getUint16(2, true);
+  const pixels = new Uint8Array(buf, IR_HEADER_BYTES);
+  return width && height && pixels.length === width * height ? { width, height, pixels } : null;
+}
+
 /** Status the app should show for a bridge status message. */
 export function statusOf(m: Extract<BridgeMessage, { type: 'status' }>): [SourceStatus, string?] {
   if (m.service === 'missing') return ['no-device', MSG.service];
@@ -55,7 +73,7 @@ export function statusOf(m: Extract<BridgeMessage, { type: 'status' }>): [Source
   return ['running'];
 }
 
-/** Hand frames from bridge/leap_bridge.py over a local WebSocket; reconnects every 2 s. */
+/** Hand frames (and, on request, IR images) from bridge/leap_bridge.py over a local WebSocket; reconnects every 2 s. */
 export class LeapSource extends BaseSource {
   readonly id = 'leap' as const;
   private ws: WebSocket | null = null;
@@ -64,6 +82,8 @@ export class LeapSource extends BaseSource {
   private status: SourceStatus = 'idle';
   /** Maps bridge timestamps onto performance.now() so latency and velocity use one clock. */
   private clockOffset: number | null = null;
+  private canvas: HTMLCanvasElement | null = null;
+  private previewOn = false;
 
   async start() {
     this.stopped = false;
@@ -79,12 +99,46 @@ export class LeapSource extends BaseSource {
     this.setStatus('idle');
   }
 
+  /** The IR camera looks up from below, so it never lines up with the skeleton. */
+  getPreview(): SourcePreview {
+    this.canvas ??= document.createElement('canvas');
+    return { el: this.canvas, aligned: false };
+  }
+
+  setPreviewEnabled(on: boolean) {
+    this.previewOn = on;
+    this.requestPreview();
+  }
+
+  private requestPreview() {
+    if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify({ type: 'preview', data: { enabled: this.previewOn } }));
+  }
+
+  private drawPreview(buf: ArrayBuffer) {
+    const img = parseIrImage(buf);
+    const ctx = this.previewOn && img ? this.canvas?.getContext('2d') : null;
+    if (!img || !ctx) return;
+    if (ctx.canvas.width !== img.width || ctx.canvas.height !== img.height) {
+      ctx.canvas.width = img.width;
+      ctx.canvas.height = img.height;
+    }
+    const frame = ctx.createImageData(img.width, img.height);
+    const rgba = new Uint32Array(frame.data.buffer);
+    img.pixels.forEach((v, i) => (rgba[i] = 0xff000000 | (v << 16) | (v << 8) | v));
+    ctx.putImageData(frame, 0, 0);
+  }
+
   private connect() {
     const ws = new WebSocket(LEAP_BRIDGE_URL);
+    ws.binaryType = 'arraybuffer';
     this.ws = ws;
     this.clockOffset = null;
-    ws.onopen = () => this.setStatus('starting', MSG.waiting);
+    ws.onopen = () => {
+      this.setStatus('starting', MSG.waiting);
+      this.requestPreview();
+    };
     ws.onmessage = (e) => {
+      if (e.data instanceof ArrayBuffer) return this.drawPreview(e.data);
       const m = parseBridgeMessage(String(e.data));
       if (!m) return;
       if (m.type === 'status') return this.setStatus(...statusOf(m));

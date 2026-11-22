@@ -48,6 +48,8 @@ export interface Settings {
   sensitivity: Sensitivity;
   trackingSource: SourceId;
   cameraPreview: boolean;
+  /** Leap IR camera inset; off by default since the image costs bandwidth and testers found the skeleton enough. */
+  irPreview: boolean;
   hudDetail: HudDetail;
   userName: string;
   leapSdkPath?: string;

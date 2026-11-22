@@ -19,13 +19,21 @@ export interface TrackingFrame {
 
 export type SourceStatus = 'idle' | 'starting' | 'running' | 'no-device' | 'error';
 
+export interface SourcePreview {
+  el: HTMLVideoElement | HTMLCanvasElement;
+  /** Same view as the landmarks, so it can sit under the skeleton; otherwise it is shown as an inset. */
+  aligned: boolean;
+}
+
 export interface TrackingSource {
   readonly id: SourceId;
   start(): Promise<void>;
   stop(): void;
   onFrame(cb: (f: TrackingFrame) => void): () => void;
   onStatus(cb: (s: SourceStatus, detail?: string) => void): () => void;
-  getPreview?(): HTMLVideoElement | null;
+  getPreview?(): SourcePreview | null;
+  /** Sources that stream their preview separately only do so while it is enabled. */
+  setPreviewEnabled?(on: boolean): void;
 }
 
 /** Landmark indices (MediaPipe order). */
