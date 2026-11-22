@@ -60,3 +60,102 @@ describe('app store', () => {
     expect(useAppStore.getState().settings).toMatchObject({ sensitivity: 'strict', userName: 'Edo', trackingSource: 'camera' });
   });
 });
+
+describe('profile management', () => {
+  beforeEach(() => mem.clear());
+
+  it('creates a profile from a ready-made template', async () => {
+    const { useAppStore } = await load();
+    const res = useAppStore.getState().createProfile({ name: 'Reading', source: { kind: 'template', templateId: 'scrolling' } });
+    if (!res.ok) throw new Error(res.error);
+
+    const created = useAppStore.getState().profiles.find((p) => p.id === res.profileId)!;
+    expect(created.name).toBe('Reading');
+    expect(created.templateId).toBe('scrolling');
+    expect(created.mappings).toHaveLength(6);
+    expect(created.mappings.every((m) => m.source === 'template')).toBe(true);
+    // Copied rows get their own ids so they can be edited independently.
+    expect(created.mappings.map((m) => m.id)).not.toContain('s-swipe-up');
+    expect(useAppStore.getState().profiles.map((p) => p.id)).toEqual(['presentation', 'web-browsing', created.id]);
+  });
+
+  it('creates an empty profile and an active one', async () => {
+    const { useAppStore } = await load();
+    const res = useAppStore.getState().createProfile({ name: 'Blank', source: { kind: 'empty' }, activate: true });
+    if (!res.ok) throw new Error(res.error);
+    const created = useAppStore.getState().profiles.find((p) => p.id === res.profileId)!;
+    expect(created.mappings).toEqual([]);
+    expect(created.templateId).toBeUndefined();
+    expect(useAppStore.getState().settings.activeProfileId).toBe(created.id);
+  });
+
+  it('duplicates an existing profile', async () => {
+    const { useAppStore } = await load();
+    const res = useAppStore.getState().createProfile({ name: 'Copy', source: { kind: 'duplicate', profileId: 'presentation' } });
+    if (!res.ok) throw new Error(res.error);
+    const copy = useAppStore.getState().profiles.find((p) => p.id === res.profileId)!;
+    expect(copy.mappings.map((m) => m.gesture)).toEqual(['swipe_right', 'swipe_left', 'open_palm', 'pinch', 'fist']);
+    expect(copy.templateId).toBe('template');
+  });
+
+  it('rejects empty and duplicate profile names', async () => {
+    const { useAppStore } = await load();
+    const s = useAppStore.getState();
+    expect(s.createProfile({ name: '   ', source: { kind: 'empty' } }).ok).toBe(false);
+    expect(s.createProfile({ name: 'Presentation Mode', source: { kind: 'empty' } }).ok).toBe(false);
+    // Case-insensitive, so it can't sneak past the check.
+    expect(s.createProfile({ name: 'presentation mode', source: { kind: 'empty' } }).ok).toBe(false);
+    expect(useAppStore.getState().profiles).toHaveLength(2);
+  });
+
+  it('renames a profile without touching its mappings', async () => {
+    const { useAppStore } = await load();
+    const before = useAppStore.getState().profiles[0]!;
+    expect(useAppStore.getState().renameProfile(before.id, 'Talk').ok).toBe(true);
+
+    const after = useAppStore.getState().profiles[0]!;
+    expect(after.name).toBe('Talk');
+    expect(after.mappings).toHaveLength(before.mappings.length);
+    // A name that is already taken is refused.
+    expect(useAppStore.getState().renameProfile(before.id, 'Web Browsing').ok).toBe(false);
+  });
+
+  it('asks for a replacement when the live profile is deleted', async () => {
+    const { useAppStore } = await load();
+    const s = useAppStore.getState();
+    expect(s.settings.activeProfileId).toBe('presentation');
+
+    expect(s.deleteProfile('presentation').ok).toBe(false);
+    expect(useAppStore.getState().profiles).toHaveLength(2);
+
+    expect(s.deleteProfile('presentation', 'web-browsing').ok).toBe(true);
+    expect(useAppStore.getState().profiles.map((p) => p.id)).toEqual(['web-browsing']);
+    expect(useAppStore.getState().settings.activeProfileId).toBe('web-browsing');
+  });
+
+  it('deletes an inactive profile without touching the live one', async () => {
+    const { useAppStore } = await load();
+    expect(useAppStore.getState().deleteProfile('web-browsing').ok).toBe(true);
+    expect(useAppStore.getState().profiles.map((p) => p.id)).toEqual(['presentation']);
+    expect(useAppStore.getState().settings.activeProfileId).toBe('presentation');
+  });
+
+  it('reverts to the template the profile was created from', async () => {
+    const { useAppStore } = await load();
+    const res = useAppStore.getState().createProfile({ name: 'Browse', source: { kind: 'template', templateId: 'browsing' } });
+    if (!res.ok) throw new Error(res.error);
+
+    const row = useAppStore.getState().profiles.find((p) => p.id === res.profileId)!.mappings.find((m) => m.gesture === 'swipe_left')!;
+    expect(row.action).toEqual({ type: 'combo', keys: ['Alt', 'ArrowLeft'] });
+
+    useAppStore.getState().updateMapping(res.profileId, { ...row, action: { type: 'key', key: 'x' } });
+    const edited = useAppStore.getState().profiles.find((p) => p.id === res.profileId)!.mappings.find((m) => m.id === row.id)!;
+    expect(edited.source).toBe('edited');
+
+    useAppStore.getState().revertMapping(res.profileId, row.id);
+    const back = useAppStore.getState().profiles.find((p) => p.id === res.profileId)!.mappings.find((m) => m.id === row.id)!;
+    // Back to the browsing template, not to the generic Mapping Template.
+    expect(back.action).toEqual({ type: 'combo', keys: ['Alt', 'ArrowLeft'] });
+    expect(back.source).toBe('template');
+  });
+});

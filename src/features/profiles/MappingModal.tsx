@@ -9,8 +9,7 @@ import { SegmentedControl, type SegmentOption } from '@/components/SegmentedCont
 import { Toggle } from '@/components/Toggle';
 import { actionCaps, actionSummary } from '@/mapping/format';
 import { GESTURE, GESTURES, HAND_LABEL } from '@/mapping/gestures';
-import { canRevert, freeGestures, handBlocks, HANDS, MAX_SCROLL_LINES, templateCounterpart, validateMapping } from '@/mapping/rules';
-import { TEMPLATE } from '@/mapping/seed';
+import { canRevert, freeGestures, handBlocks, HANDS, MAX_SCROLL_LINES, referenceTemplate, templateCounterpart, validateMapping } from '@/mapping/rules';
 import type { Action, GestureId, Hand, Mapping, Profile } from '@/mapping/types';
 import { KeyRecorder } from './KeyRecorder';
 import { SOURCE_BADGE } from './sourceBadge';
@@ -80,7 +79,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
   };
   const invalid = validateMapping(profile, draft);
   const blocks = handBlocks(profile, gesture, editing?.id);
-  const tpl = editing ? templateCounterpart(TEMPLATE, editing) : undefined;
+  const tpl = editing ? templateCounterpart(referenceTemplate(profile), editing) : undefined;
 
   const pickGesture = (g: GestureId) => {
     setGesture(g);
@@ -102,7 +101,7 @@ export function MappingModal({ profile, mode, onClose, onSave, onRevert }: Props
             {error || invalid ? (
               <span className={`text-caption ${error ? 'text-danger' : 'text-fg-muted'}`}>{error ?? invalid}</span>
             ) : editing ? (
-              canRevert(TEMPLATE, editing) && (
+              canRevert(referenceTemplate(profile), editing) && (
                 <Button variant="ghost" icon="revert" onClick={() => onRevert(editing)}>
                   Revert to template
                 </Button>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { openOnboarding } from '@/features/onboarding/store';
+import { useProfileUi } from '@/features/profiles/uiStore';
 import { useAppStore, useProfiles } from '@/store';
 import { useToast } from '@/store/toast';
 import { SOURCE_META } from '@/tracking/labels';
@@ -23,6 +24,7 @@ export function Sidebar() {
   const { sourceId, status, fps } = useTracking();
   const profiles = useProfiles();
   const activeId = useAppStore((s) => s.settings.activeProfileId);
+  const openNewProfile = useProfileUi((s) => s.openNewProfile);
   const st = STATUS[status];
 
   return (
@@ -69,6 +71,14 @@ export function Sidebar() {
                   />
                 ))}
               </div>
+              <button
+                type="button"
+                onClick={() => openNewProfile()}
+                className="mt-1 flex h-9 w-full items-center gap-2.5 rounded-ctrl border-l-2 border-transparent py-2 pl-2.5 pr-2.5 text-left text-body-md text-fg-secondary hover:bg-surface"
+              >
+                <Icon name="plus" size={16} />
+                <span className="flex-1">New profile</span>
+              </button>
             </div>
           )}
         </div>

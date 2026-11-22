@@ -1,5 +1,7 @@
 import { sameAction } from './format';
 import { GESTURE, GESTURES } from './gestures';
+import { TEMPLATE_ID } from './seed';
+import { getTemplate, type MappingTemplate } from './templates';
 import type { Action, GestureId, Hand, Mapping, Profile } from './types';
 
 export const HANDS: Hand[] = ['right', 'left', 'any'];
@@ -59,24 +61,34 @@ export function validateMapping(p: Profile, m: Pick<Mapping, 'id' | 'gesture' | 
   return validateAction(m.action);
 }
 
+/** Any set of reference mappings: the base Mapping Template or an activity template. */
+export interface TemplateLike {
+  mappings: Mapping[];
+}
+
+/** Keeps "Revert to template" meaningful for every profile. */
+export function referenceTemplate(profile: Profile): MappingTemplate {
+  return getTemplate(profile.templateId) ?? getTemplate(TEMPLATE_ID)!;
+}
+
 /** The template mapping a profile mapping can revert to (same gesture, overlapping hand). */
-export function templateCounterpart(template: Profile, m: Pick<Mapping, 'gesture' | 'hand'>): Mapping | undefined {
+export function templateCounterpart(template: TemplateLike, m: Pick<Mapping, 'gesture' | 'hand'>): Mapping | undefined {
   return template.mappings.find((t) => t.gesture === m.gesture && handsOverlap(t.hand, m.hand));
 }
 
 /** Source after an edit: template-sourced rows become `edited` once they differ from the template. */
-export function tagSource(prev: Mapping, next: Mapping, template: Profile): Mapping['source'] {
+export function tagSource(prev: Mapping, next: Mapping, template: TemplateLike): Mapping['source'] {
   if (prev.source === 'custom') return 'custom';
   const t = templateCounterpart(template, next);
   if (!t) return prev.source;
   return sameAction(t.action, next.action) && (next.holdMs ?? DEFAULT_HOLD_MS) === (t.holdMs ?? DEFAULT_HOLD_MS) ? 'template' : 'edited';
 }
 
-export function canRevert(template: Profile, m: Mapping): boolean {
+export function canRevert(template: TemplateLike, m: Mapping): boolean {
   return m.source === 'edited' && !!templateCounterpart(template, m);
 }
 
-export function reverted(template: Profile, m: Mapping): Mapping {
+export function reverted(template: TemplateLike, m: Mapping): Mapping {
   const t = templateCounterpart(template, m);
   if (!t) return m;
   return { ...m, action: t.action, holdMs: t.holdMs, source: 'template' };

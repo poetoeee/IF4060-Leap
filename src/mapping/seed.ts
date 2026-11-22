@@ -2,7 +2,14 @@ import type { GestureId, Hand, Mapping, Profile } from './types';
 
 export const TEMPLATE_ID = 'template';
 
-const m = (id: string, gesture: GestureId, hand: Hand, action: Mapping['action'], rest: Partial<Mapping> = {}): Mapping => ({
+/** Builds a mapping with sensible defaults; shared by the seed profiles and the template catalogue. */
+export const m = (
+  id: string,
+  gesture: GestureId,
+  hand: Hand,
+  action: Mapping['action'],
+  rest: Partial<Mapping> = {},
+): Mapping => ({
   id,
   gesture,
   hand,
@@ -41,6 +48,7 @@ export function seedProfiles(): Profile[] {
       name: 'Presentation Mode',
       kind: 'custom',
       description: 'Control slides hands-free — swipe through, start and end the show.',
+      templateId: TEMPLATE_ID,
       mappings: [
         m('p-swipe-right', 'swipe_right', 'right', { type: 'key', key: 'ArrowRight' }, { label: 'Next slide' }),
         m('p-swipe-left', 'swipe_left', 'right', { type: 'key', key: 'ArrowLeft' }, { label: 'Previous slide' }),
@@ -55,6 +63,7 @@ export function seedProfiles(): Profile[] {
       name: 'Web Browsing',
       kind: 'custom',
       description: 'Go back, forward and scroll in any browser with simple swipes.',
+      templateId: TEMPLATE_ID,
       mappings: [
         m('w-swipe-left', 'swipe_left', 'right', { type: 'combo', keys: ['Alt', 'ArrowLeft'] }, { label: 'Back', source: 'edited' }),
         m('w-swipe-right', 'swipe_right', 'right', { type: 'combo', keys: ['Alt', 'ArrowRight'] }, { label: 'Forward', source: 'edited' }),

@@ -8,6 +8,7 @@ import { FloatingHudOverlay } from '@/features/hud/FloatingHudOverlay';
 import { Hud } from '@/features/hud/Hud';
 import { startHudSync } from '@/features/hud/view';
 import { Onboarding } from '@/features/onboarding/Onboarding';
+import { NewProfileModal } from '@/features/profiles/NewProfileModal';
 import { ProfilePage } from '@/features/profiles/ProfilePage';
 import { startPipeline } from '@/pipeline';
 import { startController } from '@/pipeline/controller';
@@ -26,6 +27,7 @@ function Shell() {
       </main>
       <Hud />
       <Onboarding />
+      <NewProfileModal />
       <ToastHost />
     </div>
   );

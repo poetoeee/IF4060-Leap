@@ -4,19 +4,23 @@ import { Badge } from '@/components/Badge';
 import { Button } from '@/components/Button';
 import { GestureGlyph } from '@/components/GestureGlyph';
 import { Icon } from '@/components/Icon';
+import { IconButton } from '@/components/IconButton';
 import { actionCaps, actionKind } from '@/mapping/format';
 import { GESTURE, GESTURES } from '@/mapping/gestures';
-import { canRevert, freeGestures, mappedGestures } from '@/mapping/rules';
-import { TEMPLATE, TEMPLATE_PREVIEW } from '@/mapping/seed';
+import { canRevert, freeGestures, mappedGestures, referenceTemplate } from '@/mapping/rules';
+import { TEMPLATE_PREVIEW } from '@/mapping/seed';
 import type { Mapping, Profile } from '@/mapping/types';
 import { useAppStore, useProfiles } from '@/store';
 import { useToast } from '@/store/toast';
 import { DeleteModal } from './DeleteModal';
+import { DeleteProfileModal } from './DeleteProfileModal';
 import { COL } from './layout';
 import { MappingModal, type MappingModalMode } from './MappingModal';
 import { MappingRow, RowShell } from './MappingRow';
+import { RenameProfileModal } from './RenameProfileModal';
+import { TemplateSection } from './TemplateSection';
 
-type Dialog = MappingModalMode | { kind: 'delete'; mapping: Mapping } | null;
+type Dialog = MappingModalMode | { kind: 'delete'; mapping: Mapping } | { kind: 'rename' } | { kind: 'delete-profile' } | null;
 
 export function ProfilePage() {
   const { id } = useParams();
@@ -68,7 +72,14 @@ export function ProfilePage() {
 
   return (
     <div className="flex min-h-screen flex-col gap-[18px] px-8 py-7">
-      <Header profile={profile} live={live} onActivate={() => store().setSetting('activeProfileId', pid)} onAdd={() => setDialog({ kind: 'add' })} />
+      <Header
+        profile={profile}
+        live={live}
+        onActivate={() => store().setSetting('activeProfileId', pid)}
+        onAdd={() => setDialog({ kind: 'add' })}
+        onRename={() => setDialog({ kind: 'rename' })}
+        onDelete={() => setDialog({ kind: 'delete-profile' })}
+      />
 
       <section className="overflow-hidden rounded-card border bg-surface">
         <div className="flex items-center gap-4 px-5 py-3.5">
@@ -112,7 +123,7 @@ export function ProfilePage() {
               key={m.id}
               m={m}
               highlight={highlight === m.id}
-              revertible={canRevert(TEMPLATE, m)}
+              revertible={canRevert(referenceTemplate(profile), m)}
               onToggle={() => store().toggleMapping(pid, m.id)}
               onEdit={() => setDialog({ kind: 'edit', mapping: m })}
               onRevert={() => revert(m)}
@@ -128,7 +139,9 @@ export function ProfilePage() {
         <Footer profile={profile} onQuickAdd={(g) => setDialog({ kind: 'add', gesture: g })} />
       </section>
 
-      {dialog && dialog.kind !== 'delete' && (
+      {isTemplate && <TemplateSection />}
+
+      {dialog && dialog.kind !== 'delete' && dialog.kind !== 'rename' && dialog.kind !== 'delete-profile' && (
         <MappingModal profile={profile} mode={dialog} onClose={() => setDialog(null)} onSave={save} onRevert={revert} />
       )}
       {dialog?.kind === 'delete' && (
@@ -143,11 +156,27 @@ export function ProfilePage() {
           }}
         />
       )}
+      {dialog?.kind === 'rename' && <RenameProfileModal profile={profile} onClose={() => setDialog(null)} />}
+      {dialog?.kind === 'delete-profile' && <DeleteProfileModal profile={profile} onClose={() => setDialog(null)} />}
     </div>
   );
 }
 
-function Header({ profile, live, onActivate, onAdd }: { profile: Profile; live: boolean; onActivate: () => void; onAdd: () => void }) {
+function Header({
+  profile,
+  live,
+  onActivate,
+  onAdd,
+  onRename,
+  onDelete,
+}: {
+  profile: Profile;
+  live: boolean;
+  onActivate: () => void;
+  onAdd: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
   const isTemplate = profile.kind === 'template';
   return (
     <header className="flex items-end gap-4">
@@ -163,6 +192,12 @@ function Header({ profile, live, onActivate, onAdd }: { profile: Profile; live: 
             </>
           ) : (
             <Badge tone="accent" label="Custom profile" dot={false} />
+          )}
+          {!isTemplate && (
+            <span className="flex items-center gap-1.5">
+              <IconButton icon="pencil" label="Rename profile" onClick={onRename} />
+              <IconButton icon="trash" label="Delete profile" tone="danger" onClick={onDelete} />
+            </span>
           )}
         </div>
         <p className="text-body text-fg-secondary">{profile.description}</p>

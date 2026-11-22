@@ -36,6 +36,8 @@ export interface Profile {
   kind: 'template' | 'custom';
   description: string;
   mappings: Mapping[];
+  /** Template this profile was created from — drives "Revert to template". */
+  templateId?: string;
 }
 
 export type Sensitivity = 'relaxed' | 'balanced' | 'strict';

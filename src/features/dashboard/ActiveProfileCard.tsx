@@ -5,6 +5,7 @@ import { GestureGlyph } from '@/components/GestureGlyph';
 import { Icon } from '@/components/Icon';
 import { KeyCaps } from '@/components/KeyCap';
 import { actionCaps, actionSummary } from '@/mapping/format';
+import { useProfileUi } from '@/features/profiles/uiStore';
 import { useAppStore } from '@/store';
 
 /** Figma 15:415 + switch dropdown 05 (16:638). */
@@ -12,6 +13,7 @@ export function ActiveProfileCard() {
   const profiles = useAppStore((s) => s.profiles);
   const activeId = useAppStore((s) => s.settings.activeProfileId);
   const setSetting = useAppStore((s) => s.setSetting);
+  const openNewProfile = useProfileUi((s) => s.openNewProfile);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -77,6 +79,21 @@ export function ActiveProfileCard() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              role="option"
+              aria-selected={false}
+              onClick={() => {
+                setOpen(false);
+                openNewProfile();
+              }}
+              className="flex items-center gap-2.5 rounded-ctrl px-2.5 py-2 text-left hover:bg-surface-3"
+            >
+              <span className="flex size-[22px] items-center justify-center">
+                <Icon name="plus" size={16} className="text-accent" />
+              </span>
+              <span className="flex-1 text-label">New profile</span>
+            </button>
             <span className="flex items-start gap-2 border-t px-2.5 pb-1 pt-2.5 text-caption text-fg-muted">
               <Icon name="info" size={13} className="mt-0.5" />
               Left Open Palm (pause) works in every profile.
