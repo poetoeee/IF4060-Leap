@@ -14,6 +14,12 @@ export function palmCenter(h: HandState): Vec3 {
   };
 }
 
+/** Comfortable tracking zone in view mm (centre origin); the stage draws and checks the same numbers. */
+export const OPTIMAL_ZONE = { w: 160, h: 150, cy: 10 };
+
+export const inOptimalZone = (palm: Vec3) =>
+  Math.abs(palm.x) <= OPTIMAL_ZONE.w / 2 && Math.abs(palm.y - OPTIMAL_ZONE.cy) <= OPTIMAL_ZONE.h / 2;
+
 /** |wrist → middle MCP|: normalises distances across sources and camera distance. */
 export const handSize = (h: HandState) => dist(h.landmarks[0]!, h.landmarks[9]!);
 

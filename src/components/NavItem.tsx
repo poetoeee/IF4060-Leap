@@ -26,6 +26,16 @@ export function NavItemMain({ to, icon, label, end }: MainProps) {
   );
 }
 
+/** Looks like a main nav item but runs an action instead of navigating. */
+export function NavButton({ icon, label, onClick }: { icon: IconName; label: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className={`${base} py-2.5 pl-2.5 text-left ${state(false)}`}>
+      <Icon name={icon} className="text-fg-secondary" />
+      <span className="flex-1 text-body-md">{label}</span>
+    </button>
+  );
+}
+
 interface SubProps {
   to: string;
   label: string;

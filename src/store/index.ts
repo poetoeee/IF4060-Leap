@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cameraPreview: true,
   irPreview: false,
   hudDetail: 'simple',
+  onboardingDone: false,
   userName: 'Edo',
   leapSdkPath: '',
 };

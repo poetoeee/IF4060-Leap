@@ -8,6 +8,7 @@ export function MasterControl() {
   const enabled = useAppStore((s) => s.settings.controllerEnabled);
   return (
     <div
+      data-tour="master"
       className={`flex items-center gap-4 rounded-card border py-3 pl-[18px] pr-4 ${
         enabled ? 'border-accent bg-accent-subtle shadow-[0_0_28px_rgb(var(--accent-default)/0.18)]' : 'bg-surface'
       }`}

@@ -51,6 +51,7 @@ export interface Settings {
   /** Leap IR camera inset; off by default since the image costs bandwidth and testers found the skeleton enough. */
   irPreview: boolean;
   hudDetail: HudDetail;
+  onboardingDone: boolean;
   userName: string;
   leapSdkPath?: string;
 }

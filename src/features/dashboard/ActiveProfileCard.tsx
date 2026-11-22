@@ -31,7 +31,7 @@ export function ActiveProfileCard() {
   }, [open]);
 
   return (
-    <section className="flex flex-col gap-3.5 rounded-card border bg-surface px-5 pb-5 pt-[18px]">
+    <section data-tour="profile" className="flex flex-col gap-3.5 rounded-card border bg-surface px-5 pb-5 pt-[18px]">
       <div className="t-overline flex justify-between text-fg-muted">
         <span>active profile</span>
         <span>{active?.mappings.length ?? 0} mappings</span>

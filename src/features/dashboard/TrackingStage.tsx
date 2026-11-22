@@ -10,16 +10,14 @@ import { GESTURE } from '@/mapping/gestures';
 import { recognizer } from '@/pipeline';
 import { useController } from '@/pipeline/controller';
 import { useAppStore } from '@/store';
-import { palmCenter, project } from '@/tracking/hand';
+import { inOptimalZone, palmCenter } from '@/tracking/hand';
 import { SOURCE_META } from '@/tracking/labels';
 import { getLatestFrame, restartSource, setPreviewWanted } from '@/tracking/manager';
-import { parkPreview } from '@/tracking/preview';
-import { DEFAULT_VIEW_ASPECT } from '@/tracking/types';
+import { parkPreview, previewAspect } from '@/tracking/preview';
 import { useTracking } from '@/tracking/useTracking';
+import { OptimalZone } from './OptimalZone';
 import { SkeletonCanvas } from './SkeletonCanvas';
 
-/** Optimal zone in view mm (centre origin). Drawn and evaluated with the same numbers. */
-const OPTIMAL = { w: 160, h: 150, cy: 10 };
 /** Leap reports height above the device; the bridge recentres y by −200 mm. */
 const HEIGHT_OFFSET_MM = 200;
 
@@ -41,7 +39,7 @@ function readTelemetry(): Telemetry {
   return {
     tag,
     height: `${Math.round((palm.y + HEIGHT_OFFSET_MM) / 10)} cm`,
-    inZone: Math.abs(palm.x) <= OPTIMAL.w / 2 && Math.abs(palm.y - OPTIMAL.cy) <= OPTIMAL.h / 2,
+    inZone: inOptimalZone(palm),
   };
 }
 
@@ -55,8 +53,7 @@ export function TrackingStage() {
   const backdropBox = useRef<HTMLDivElement>(null);
   const insetBox = useRef<HTMLDivElement>(null);
   const running = status === 'running';
-  const video = preview?.el instanceof HTMLVideoElement ? preview.el : null;
-  const aspect = video?.videoHeight ? video.videoHeight / video.videoWidth : DEFAULT_VIEW_ASPECT;
+  const aspect = previewAspect(preview);
 
   useEffect(() => {
     if (!running) return;
@@ -83,7 +80,7 @@ export function TrackingStage() {
   }, [preview]);
 
   return (
-    <div className="stage-bg relative min-h-0 flex-1 overflow-hidden rounded-card border">
+    <div data-tour="stage" className="stage-bg relative min-h-0 flex-1 overflow-hidden rounded-card border">
       <div ref={backdropBox} className={`absolute inset-0 opacity-70 ${preview?.aligned && showPreview ? '' : 'hidden'}`} />
 
       {running && <OptimalZone aspect={aspect} tag={tele.tag} />}
@@ -137,36 +134,6 @@ export function TrackingStage() {
         <LedMark state={running ? 'live' : 'idle'} />
         <span className="t-overline whitespace-nowrap text-fg-muted">{meta?.stageLabel}</span>
       </div>
-    </div>
-  );
-}
-
-function OptimalZone({ aspect, tag }: { aspect: number; tag: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ w: 0, h: 0 });
-
-  useEffect(() => {
-    const parent = ref.current!.parentElement!;
-    const ro = new ResizeObserver(() => setBox({ w: parent.clientWidth, h: parent.clientHeight }));
-    ro.observe(parent);
-    return () => ro.disconnect();
-  }, []);
-
-  const { x: left, y: top, scale } = project({ x: -OPTIMAL.w / 2, y: OPTIMAL.cy + OPTIMAL.h / 2, z: 0 }, box.w, box.h, aspect);
-  const w = OPTIMAL.w * scale;
-  const h = OPTIMAL.h * scale;
-
-  return (
-    <div ref={ref} className="pointer-events-none absolute inset-0">
-      <div className="absolute rounded-[20px] border border-dashed border-accent bg-accent/5" style={{ left, top, width: w, height: h }} />
-      {tag && (
-        <span
-          className="absolute -translate-y-1/2 whitespace-nowrap rounded-nav bg-accent py-1 pl-2 pr-2.5 font-mono text-key text-fg-on-accent"
-          style={{ left, top }}
-        >
-          {tag}
-        </span>
-      )}
     </div>
   );
 }

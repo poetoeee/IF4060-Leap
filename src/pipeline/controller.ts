@@ -44,6 +44,15 @@ const HUD_TOGGLE_MS = 2500;
 const HOLD_RING_FROM_MS = 400;
 let hudTimer = 0;
 let nextId = 0;
+let capture: ((e: GestureEvent) => void) | null = null;
+
+/** Routes every gesture event to `cb` instead of acting on it (onboarding practice). Returns a release function. */
+export function captureGestures(cb: (e: GestureEvent) => void) {
+  capture = cb;
+  return () => {
+    if (capture === cb) capture = null;
+  };
+}
 
 function showHud(hud: Hud, ms = HUD_MS) {
   clearTimeout(hudTimer);
@@ -73,6 +82,7 @@ function record(e: GestureEvent, outcome: Outcome, caps: string[], label: string
 }
 
 function onEvent(e: GestureEvent, executor: ActionExecutor) {
+  if (capture) return capture(e);
   const { controllerEnabled } = useAppStore.getState().settings;
 
   if (e.kind === 'hold') {

@@ -7,6 +7,7 @@ import { DemoPage } from '@/features/demo/DemoPage';
 import { FloatingHudOverlay } from '@/features/hud/FloatingHudOverlay';
 import { Hud } from '@/features/hud/Hud';
 import { startHudSync } from '@/features/hud/view';
+import { Onboarding } from '@/features/onboarding/Onboarding';
 import { ProfilePage } from '@/features/profiles/ProfilePage';
 import { startPipeline } from '@/pipeline';
 import { startController } from '@/pipeline/controller';
@@ -24,6 +25,7 @@ function Shell() {
         <Outlet />
       </main>
       <Hud />
+      <Onboarding />
       <ToastHost />
     </div>
   );

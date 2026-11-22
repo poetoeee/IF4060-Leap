@@ -101,7 +101,7 @@ export function SensorCard() {
   };
 
   return (
-    <section className="flex flex-col gap-3.5 rounded-card border bg-surface px-5 pb-5 pt-[18px]">
+    <section data-tour="sensor" className="flex flex-col gap-3.5 rounded-card border bg-surface px-5 pb-5 pt-[18px]">
       <div className="flex items-center justify-between">
         <span className="t-overline text-fg-muted">sensor</span>
         <Badge tone={badge.tone} label={badge.label} />

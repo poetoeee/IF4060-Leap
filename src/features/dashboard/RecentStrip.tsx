@@ -21,7 +21,7 @@ export function RecentStrip() {
   }, [recent.length]);
 
   return (
-    <section className="flex shrink-0 flex-col gap-3 rounded-card border bg-surface px-5 pb-4 pt-[15px]">
+    <section data-tour="recent" className="flex shrink-0 flex-col gap-3 rounded-card border bg-surface px-5 pb-4 pt-[15px]">
       <div className="flex items-baseline gap-2">
         <span className="text-label">Recent gestures</span>
         <span className="t-overline text-fg-muted">last 5 · not saved</span>

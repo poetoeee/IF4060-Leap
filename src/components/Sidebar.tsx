@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { openOnboarding } from '@/features/onboarding/store';
 import { useAppStore, useProfiles } from '@/store';
 import { useToast } from '@/store/toast';
 import { SOURCE_META } from '@/tracking/labels';
@@ -6,7 +7,7 @@ import type { SourceStatus } from '@/tracking/types';
 import { useTracking } from '@/tracking/useTracking';
 import { Icon } from './Icon';
 import { LedMark } from './LedMark';
-import { NavItemMain, NavItemSub } from './NavItem';
+import { NavButton, NavItemMain, NavItemSub } from './NavItem';
 import { StatusDot, type DotTone } from './StatusDot';
 
 const STATUS: Record<SourceStatus, { text: string; tone: DotTone }> = {
@@ -38,40 +39,46 @@ export function Sidebar() {
         <span className="t-overline pb-2 pl-2.5 text-fg-muted">Workspace</span>
         <NavItemMain to="/" end icon="dashboard" label="Dashboard" />
         <NavItemMain to="/demo" icon="presentation" label="Demo Stage" />
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          className="flex h-10 items-center gap-2.5 rounded-ctrl border-l-2 border-transparent py-2.5 pl-2.5 pr-2.5 text-left hover:bg-surface"
-        >
-          <Icon name="layers" className="text-fg-secondary" />
-          <span className="flex-1 text-body-md">Mappings</span>
-          <Icon name="chevron-down" size={16} className={`text-fg-secondary transition-transform ${open ? '' : '-rotate-90'}`} />
-        </button>
-        {open && (
-          <div className="pl-5">
-            <div className="flex flex-col gap-0.5 border-l border-border-strong pl-1.5">
-              {profiles.map((p) => (
-                <NavItemSub
-                  key={p.id}
-                  to={`/profiles/${p.id}`}
-                  label={p.name}
-                  caption={p.kind === 'template' ? 'Base · read-only' : 'Custom profile'}
-                  trailing={
-                    p.kind === 'template' ? (
-                      <Icon name="lock" size={14} className="text-fg-muted" />
-                    ) : p.id === activeId ? (
-                      <StatusDot tone="accent" size={7} />
-                    ) : null
-                  }
-                />
-              ))}
+        <div data-tour="mappings" className="flex flex-col gap-0.5">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            className="flex h-10 items-center gap-2.5 rounded-ctrl border-l-2 border-transparent py-2.5 pl-2.5 pr-2.5 text-left hover:bg-surface"
+          >
+            <Icon name="layers" className="text-fg-secondary" />
+            <span className="flex-1 text-body-md">Mappings</span>
+            <Icon name="chevron-down" size={16} className={`text-fg-secondary transition-transform ${open ? '' : '-rotate-90'}`} />
+          </button>
+          {open && (
+            <div className="pl-5">
+              <div className="flex flex-col gap-0.5 border-l border-border-strong pl-1.5">
+                {profiles.map((p) => (
+                  <NavItemSub
+                    key={p.id}
+                    to={`/profiles/${p.id}`}
+                    label={p.name}
+                    caption={p.kind === 'template' ? 'Base · read-only' : 'Custom profile'}
+                    trailing={
+                      p.kind === 'template' ? (
+                        <Icon name="lock" size={14} className="text-fg-muted" />
+                      ) : p.id === activeId ? (
+                        <StatusDot tone="accent" size={7} />
+                      ) : null
+                    }
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </nav>
 
       <div className="flex-1" />
+
+      <div data-tour="help">
+        <NavButton icon="info" label="Getting started" onClick={openOnboarding} />
+      </div>
 
       <div className="flex items-center gap-2.5 rounded-ctrl-lg border bg-surface px-3 py-2.5">
         <StatusDot tone={st.tone} />
